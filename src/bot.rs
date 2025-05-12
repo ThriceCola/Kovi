@@ -520,15 +520,18 @@ impl Bot {
 
             let mut plugin_status = HashMap::new();
             for (name, plugin) in self.plugins.iter() {
-                plugin_status.insert(name.clone(), PluginStatus {
-                    enable_on_startup: *plugin.enabled.borrow(),
-                    #[cfg(feature = "plugin-access-control")]
-                    access_control: plugin.access_control,
-                    #[cfg(feature = "plugin-access-control")]
-                    list_mode: plugin.list_mode,
-                    #[cfg(feature = "plugin-access-control")]
-                    access_list: plugin.access_list.clone(),
-                });
+                plugin_status.insert(
+                    name.clone(),
+                    PluginStatus {
+                        enable_on_startup: *plugin.enabled.borrow(),
+                        #[cfg(feature = "plugin-access-control")]
+                        access_control: plugin.access_control,
+                        #[cfg(feature = "plugin-access-control")]
+                        list_mode: plugin.list_mode,
+                        #[cfg(feature = "plugin-access-control")]
+                        access_list: plugin.access_list.clone(),
+                    },
+                );
             }
 
             let serialized = match toml::to_string(&plugin_status) {
@@ -727,6 +730,50 @@ fn config_file_write_and_return() -> Result<KoviConf, std::io::Error> {
     Ok(config)
 }
 
+/// 用于将多个插件挂载到机器人实例的宏（支持自定义日志格式）
+///
+/// 该宏提供两种调用形式：
+/// 1. **默认日志格式**：自动生成 "Mounting plugin: {name} version {version}" 格式的日志
+/// 2. **自定义日志格式**：允许传递包含 `{0}` (名称) 和 `{1}` (版本) 占位符的格式字符串
+///
+/// 两种形式都会通过 [`Bot::mount_main`] 方法挂载插件。
+///
+/// # 用法
+/// ```ignore
+/// // 默认日志格式用法
+/// mount_plugin!(bot, PluginA, PluginB);
+///
+/// // 自定义日志格式用法
+/// let custom_fmt = "挂载插件: {0} (v{1})";
+/// mount_plugin!(bot, custom_fmt, PluginC, PluginD);
+/// ```
+///
+/// # 参数
+/// - `$bot`: 实现了 [`Bot`] 类型的实例标识符
+/// - `$mount_message` (可选): 字面量或表达式，返回符合 [`std::fmt`] 格式的字符串，需包含：
+///   - `{0}`: 插件名称占位符
+///   - `{1}`: 插件版本占位符
+/// - `$plugin`: 插件模块标识符列表
+///
+/// # 注意
+/// - **日志行为**：
+///   - 未提供 `$mount_message` 时使用默认格式
+///   - 格式字符串必须严格包含 `{0}` 和 `{1}` 两个位置参数
+/// - **日志级别**：始终使用 INFO 级别记录挂载操作
+#[macro_export]
+macro_rules! mount_plugin {
+    ($bot:ident, $( $plugin:ident ),* $(,)* ) => {$({
+        let (_name, _version) = $plugin::__kovi_get_plugin_info();
+        kovi::log::info!("Mounting plugin: {0} version {1}", _name, _version);
+        $bot.mount_main(_name, _version, std::sync::Arc::new($plugin::__kovi_run_async_plugin));
+    })*};
+    ($bot:ident, $mount_message:expr, $( $plugin:ident ),* $(,)* ) => {$({
+        let (_name, _version) = $plugin::__kovi_get_plugin_info();
+        kovi::log::info!($mount_message, _name, _version);
+        $bot.mount_main(_name, _version, std::sync::Arc::new($plugin::__kovi_run_async_plugin));
+    })*};
+}
+
 #[macro_export]
 macro_rules! build_bot {
     ($( $plugin:ident ),* $(,)* ) => {
@@ -741,11 +788,7 @@ macro_rules! build_bot {
             kovi::logger::try_set_logger();
             let mut bot = kovi::bot::Bot::build(&conf);
 
-            $(
-                let (crate_name, crate_version) = $plugin::__kovi_get_plugin_info();
-                kovi::log::info!("Mounting plugin: {}", crate_name);
-                bot.mount_main(crate_name, crate_version, std::sync::Arc::new($plugin::__kovi_run_async_plugin));
-            )*
+            kovi::mount_plugin!(bot, $($plugin),*);
 
             bot.set_plugin_startup_use_file_ref();
             bot
