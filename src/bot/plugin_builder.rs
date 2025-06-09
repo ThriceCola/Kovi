@@ -137,14 +137,12 @@ impl PluginBuilder {
         Fut: Future + Send,
         Fut::Output: Send,
     {
-        todo!()
-        // PLUGIN_BUILDER.with(|p| {
-        //     println!("!!!");
-        //     let mut bot = p.bot.write();
-        //     let bot_plugin = bot.plugins.get_mut(&p.runtime_bot.plugin_name).expect("");
+        PLUGIN_BUILDER.with(|p| {
+            let mut bot = p.bot.write();
+            let bot_plugin = bot.plugins.get_mut(&p.runtime_bot.plugin_name).expect("");
 
-        //     bot_plugin.listen.on(handler);
-        // })
+            bot_plugin.listen.on(handler);
+        })
     }
 
     /// 注册消息处理函数。
