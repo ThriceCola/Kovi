@@ -1,5 +1,9 @@
-use crate::bot::message::cq_to_arr_inner;
+use std::sync::Arc;
+
 use super::{Anonymous, EventBuildError, Sender};
+use crate::Bot;
+use crate::bot::message::cq_to_arr_inner;
+use crate::bot::plugin_builder::event::Event;
 use crate::bot::runtimebot::send_api_request_with_forget;
 use crate::types::ApiAndOneshot;
 use crate::{
@@ -7,6 +11,7 @@ use crate::{
     bot::{SendApi, plugin_builder::event::Sex},
 };
 use log::{debug, info};
+use parking_lot::RwLock;
 use serde::Serialize;
 use serde_json::value::Index;
 use serde_json::{self, Value, json};
@@ -57,14 +62,18 @@ pub struct MsgEvent {
     api_tx: mpsc::Sender<ApiAndOneshot>,
 }
 
+impl Event for MsgEvent {
+    fn de(json_str: &str, _: &Bot, api_tx: mpsc::Sender<ApiAndOneshot>) -> Option<Self> {
+        let json = serde_json::from_str(json_str).ok()?;
+        Self::new(api_tx, json).ok()
+    }
+}
+
 impl MsgEvent {
     pub(crate) fn new(
         api_tx: mpsc::Sender<ApiAndOneshot>,
-        msg: &str,
+        temp: Value,
     ) -> Result<MsgEvent, EventBuildError> {
-        let temp: Value =
-            serde_json::from_str(msg).map_err(|e| EventBuildError::ParseError(e.to_string()))?;
-
         let temp_object = temp.as_object().ok_or(EventBuildError::ParseError(
             "Invalid JSON object".to_string(),
         ))?;
@@ -142,7 +151,13 @@ impl MsgEvent {
             Message::from_vec_segment_value(v)
                 .map_err(|e| EventBuildError::ParseError(format!("Parse error: {}", e)))?
         } else {
-            let str_v = temp_object["message"].as_str().ok_or(format!("message is not string:{:?}",temp_object["message"]))?;
+            let str_v = temp_object["message"]
+                .as_str()
+                .ok_or(format!(
+                    "message is not string:{:?}",
+                    temp_object["message"]
+                ))
+                .map_err(|e| EventBuildError::ParseError(format!("Parse error: {}", e)))?;
             let arr_v = cq_to_arr_inner(str_v);
             Message::from_vec_segment_value(arr_v).unwrap()
         };

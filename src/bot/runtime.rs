@@ -1,18 +1,18 @@
 use super::{
-    Bot,
     handler::{InternalEvent, KoviEvent},
+    ApiAndOneshot, Bot,
 };
-use crate::{PluginBuilder, types::ApiAndOneshot};
+use crate::PluginBuilder;
 use log::error;
 use parking_lot::RwLock;
 use std::{
     borrow::Borrow,
     future::Future,
     process::exit,
-    sync::{Arc, LazyLock},
+    sync::{Arc, LazyLock, OnceLock},
 };
 use tokio::{
-    runtime::Runtime as TokioRuntime,
+    runtime::Runtime,
     sync::{
         mpsc::{self, Sender},
         watch,
@@ -20,9 +20,44 @@ use tokio::{
     task::JoinHandle,
 };
 
-pub(crate) static RUNTIME: LazyLock<TokioRuntime> =
-    LazyLock::new(|| TokioRuntime::new().expect("unreachable! tokio runtime fail to start"));
+pub static RUNTIME: OnceLock<KoviRuntime> = OnceLock::new();
 pub(crate) use RUNTIME as RT;
+
+#[derive(Debug)]
+pub struct KoviRuntime {
+    pub(crate) runtime: Arc<Runtime>,
+}
+
+impl Default for KoviRuntime {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl KoviRuntime {
+    pub fn new() -> Self {
+        let runtime = Runtime::new().unwrap();
+        Self {
+            runtime: Arc::new(runtime),
+        }
+    }
+
+    pub fn build(runtime: Arc<Runtime>) -> Self {
+        Self { runtime }
+    }
+
+    pub fn block_on<F: Future>(&self, future: F) -> F::Output {
+        self.runtime.block_on(future)
+    }
+
+    pub fn spawn<F>(&self, future: F) -> JoinHandle<F::Output>
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static,
+    {
+        self.runtime.spawn(future)
+    }
+}
 
 impl Bot {
     pub fn spawn<F>(&mut self, future: F) -> JoinHandle<F::Output>
@@ -30,7 +65,7 @@ impl Bot {
         F: Future + Send + 'static,
         F::Output: Send + 'static,
     {
-        let join = RT.spawn(future);
+        let join = RT.get().unwrap().spawn(future);
         self.run_abort.push(join.abort_handle());
         join
     }
@@ -43,12 +78,11 @@ impl Bot {
 
         let bot = Arc::new(RwLock::new(self));
 
-        let async_task = async {
-            // let (tx, rx): (
-            //     tokio::sync::broadcast::Sender<Arc<dyn super::plugin_builder::event::Event>>,
-            //     tokio::sync::broadcast::Receiver<Arc<dyn super::plugin_builder::event::Event>>,
-            // ) = tokio::sync::broadcast::channel(32);
+        if RUNTIME.get().is_none() {
+            RUNTIME.set(KoviRuntime::new()).unwrap();
+        }
 
+        let async_task = async {
             //处理连接，从msg_tx返回消息
             let (event_tx, mut event_rx): (
                 mpsc::Sender<InternalEvent>,
@@ -60,7 +94,7 @@ impl Bot {
                 mpsc::channel(32);
 
             // 连接
-            let connect_task = RT.spawn({
+            let connect_task = RT.get().unwrap().spawn({
                 let event_tx = event_tx.clone();
                 Self::ws_connect(server, api_rx, event_tx, bot.clone())
             });
@@ -99,10 +133,16 @@ impl Bot {
 
                 // Drop为关闭事件，所以要等待，其他的不等待
                 if let InternalEvent::KoviEvent(KoviEvent::Drop) = event {
-                    drop_task = Some(RT.spawn(Self::handler_event(bot, event, api_tx)));
+                    drop_task = Some(
+                        RT.get()
+                            .unwrap()
+                            .spawn(Self::handler_event(bot, event, api_tx)),
+                    );
                     break;
                 } else {
-                    RT.spawn(Self::handler_event(bot, event, api_tx));
+                    RT.get()
+                        .unwrap()
+                        .spawn(Self::handler_event(bot, event, api_tx));
                 }
             }
             if let Some(drop_task) = drop_task {
@@ -115,7 +155,7 @@ impl Bot {
             }
         };
 
-        RT.block_on(async_task);
+        RUNTIME.get().unwrap().block_on(async_task);
     }
 
     // 运行所有main()
@@ -130,8 +170,8 @@ impl Bot {
             )
         };
 
-        for (name, plugin) in main_job_map.iter() {
-            if !plugin.enable_on_startup {
+        for (name, plugins) in main_job_map.iter() {
+            if !plugins.enable_on_startup {
                 continue;
             }
             let plugin_builder = PluginBuilder::new(
@@ -141,7 +181,7 @@ impl Bot {
                 port,
                 api_tx.clone(),
             );
-            plugin.run(plugin_builder);
+            plugins.run_plugin_main(plugin_builder);
         }
     }
 }
@@ -164,7 +204,7 @@ impl ExitCheck {
         let (tx, watch_rx) = watch::channel(false);
 
         // 启动 drop check 任务
-        let join_handle = RT.spawn(async move {
+        let join_handle = RT.get().unwrap().spawn(async move {
             Self::await_exit_signal().await;
 
             let _ = tx.send(true);
@@ -182,7 +222,7 @@ impl ExitCheck {
 
     async fn await_exit_signal() {
         #[cfg(unix)]
-        use tokio::signal::unix::{SignalKind, signal};
+        use tokio::signal::unix::{signal, SignalKind};
         #[cfg(windows)]
         use tokio::signal::windows;
 
