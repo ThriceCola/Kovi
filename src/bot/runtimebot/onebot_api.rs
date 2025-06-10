@@ -1,12 +1,12 @@
 use super::{
-    send_api_await_response, send_api_request, send_api_request_with_forget,
-    send_api_request_with_response, RuntimeBot,
+    RuntimeBot, send_api_await_response, send_api_request, send_api_request_with_forget,
+    send_api_request_with_response,
 };
 use crate::bot::ApiReturn;
-use crate::bot::{message::Message, runtimebot::rand_echo, SendApi};
+use crate::bot::{SendApi, message::Message, runtimebot::rand_echo};
 use log::info;
 use serde::Serialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 #[cfg(feature = "cqstring")]
 use crate::bot::message::CQMessage;
@@ -60,7 +60,10 @@ impl RuntimeBot {
             let r = send_api_await_response(api_rx).await;
 
             match r {
-                Ok(v) => Ok(v.data.get("message_id").unwrap().as_i64().unwrap() as i32),
+                Ok(v) => match v.data.get("message_id").and_then(|v| v.as_i64()) {
+                    Some(b) => Ok(b as i32),
+                    None => Err(v),
+                },
 
                 Err(v) => Err(v),
             }
@@ -101,7 +104,10 @@ impl RuntimeBot {
         async move {
             let r = send_api_await_response(api_rx).await;
             match r {
-                Ok(v) => Ok(v.data.get("message_id").unwrap().as_i64().unwrap() as i32),
+                Ok(v) => match v.data.get("message_id").and_then(|v| v.as_i64()) {
+                    Some(b) => Ok(b as i32),
+                    None => Err(v),
+                },
 
                 Err(v) => Err(v),
             }
@@ -138,7 +144,10 @@ impl RuntimeBot {
             let r = send_api_await_response(api_rx).await;
 
             match r {
-                Ok(v) => Ok(v.data.get("message_id").unwrap().as_i64().unwrap() as i32),
+                Ok(v) => match v.data.get("message_id").and_then(|v| v.as_i64()) {
+                    Some(b) => Ok(b as i32),
+                    None => Err(v),
+                },
 
                 Err(v) => Err(v),
             }
@@ -177,7 +186,10 @@ impl RuntimeBot {
         async move {
             let r = send_api_await_response(api_rx).await;
             match r {
-                Ok(v) => Ok(v.data.get("message_id").unwrap().as_i64().unwrap() as i32),
+                Ok(v) => match v.data.get("message_id").and_then(|v| v.as_i64()) {
+                    Some(b) => Ok(b as i32),
+                    None => Err(v),
+                },
 
                 Err(v) => Err(v),
             }
@@ -193,7 +205,10 @@ impl RuntimeBot {
         async move {
             let r = send_api_await_response(api_rx).await;
             match r {
-                Ok(v) => Ok(v.data.get("yes").unwrap().as_bool().unwrap()),
+                Ok(v) => match v.data.get("yes").and_then(|v| v.as_bool()) {
+                    Some(b) => Ok(b),
+                    None => Err(v),
+                },
 
                 Err(v) => Err(v),
             }
@@ -209,7 +224,10 @@ impl RuntimeBot {
         async move {
             let r = send_api_await_response(api_rx).await;
             match r {
-                Ok(v) => Ok(v.data.get("yes").unwrap().as_bool().unwrap()),
+                Ok(v) => match v.data.get("yes").and_then(|v| v.as_bool()) {
+                    Some(b) => Ok(b),
+                    None => Err(v),
+                },
 
                 Err(v) => Err(v),
             }

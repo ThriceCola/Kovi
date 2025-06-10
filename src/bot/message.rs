@@ -1,7 +1,7 @@
 use std::{collections::HashMap, ops::Add};
 
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::error::MessageError;
 
@@ -363,7 +363,7 @@ pub(crate) fn cq_to_arr_inner(message: &str) -> Vec<serde_json::Value> {
                 if i + 4 <= cqstr.len() {
                     let t = &cqstr[i..i + 4];
                     if t.starts_with(&['[', 'C', 'Q', ':']) {
-                        if text.len() != 0 {
+                        if !text.is_empty() {
                             let mut node: HashMap<String, serde_json::Value> = HashMap::new();
                             node.insert("type".to_string(), serde_json::json!("text"));
                             node.insert("data".to_string(), serde_json::json!({"text": text}));
@@ -498,7 +498,7 @@ pub(crate) fn cq_to_arr_inner(message: &str) -> Vec<serde_json::Value> {
         }
         i += 1;
     }
-    if text.len() != 0 {
+    if !text.is_empty() {
         let mut node: HashMap<String, serde_json::Value> = HashMap::new();
         node.insert("type".to_string(), serde_json::json!("text"));
         node.insert("data".to_string(), serde_json::json!({"text": text}));
@@ -506,7 +506,6 @@ pub(crate) fn cq_to_arr_inner(message: &str) -> Vec<serde_json::Value> {
     }
     jsonarr
 }
-
 
 #[cfg(feature = "cqstring")]
 pub fn cq_to_arr(message: CQMessage) -> Message {

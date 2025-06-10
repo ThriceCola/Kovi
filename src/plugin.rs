@@ -1,8 +1,8 @@
+use crate::PluginBuilder;
 use crate::bot::plugin_builder::Listen;
 #[cfg(feature = "plugin-access-control")]
 use crate::bot::runtimebot::kovi_api::AccessList;
 use crate::types::KoviAsyncFn;
-use crate::{Bot, PluginBuilder};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::watch;
@@ -75,7 +75,7 @@ impl Plugin {
                 ) =>{}
                 _ = async {
                         loop {
-                            enabled.changed().await.unwrap();
+                            enabled.changed().await.expect("Failed to change enabled status");
                             if !*enabled.borrow_and_update() {
                                 break;
                             }

@@ -27,6 +27,7 @@ pub(crate) mod connect;
 pub(crate) mod handler;
 pub(crate) mod run;
 
+pub mod event;
 pub mod message;
 pub mod plugin_builder;
 pub mod runtimebot;
@@ -469,7 +470,7 @@ impl std::fmt::Display for ApiReturn {
 
 impl std::fmt::Display for SendApi {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", serde_json::to_string(self).unwrap())
+        write!(f, "{}", serde_json::to_string(self).expect("unreachable"))
     }
 }
 
@@ -498,7 +499,7 @@ fn config_file_write_and_return() -> Result<KoviConf, std::io::Error> {
             .items(&items)
             .default(0)
             .interact()
-            .unwrap();
+            .expect("unreachable");
 
         match select {
             0 => HostType::IPv4,
@@ -514,7 +515,7 @@ fn config_file_write_and_return() -> Result<KoviConf, std::io::Error> {
                 .with_prompt("What is the IP of the OneBot server?")
                 .default(Ipv4Addr::new(127, 0, 0, 1))
                 .interact_text()
-                .unwrap();
+                .expect("unreachable");
             Host::IpAddr(IpAddr::V4(ip))
         }
         HostType::IPv6 => {
@@ -522,7 +523,7 @@ fn config_file_write_and_return() -> Result<KoviConf, std::io::Error> {
                 .with_prompt("What is the IP of the OneBot server?")
                 .default(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1))
                 .interact_text()
-                .unwrap();
+                .expect("unreachable");
             Host::IpAddr(IpAddr::V6(ip))
         }
         HostType::Domain => {
@@ -530,7 +531,7 @@ fn config_file_write_and_return() -> Result<KoviConf, std::io::Error> {
                 .with_prompt("What is the domain of the OneBot server?")
                 .default("localhost".to_string())
                 .interact_text()
-                .unwrap();
+                .expect("unreachable");
             Host::Domain(domain)
         }
     };
@@ -539,20 +540,20 @@ fn config_file_write_and_return() -> Result<KoviConf, std::io::Error> {
         .with_prompt("What is the port of the OneBot server?")
         .default(8081)
         .interact_text()
-        .unwrap();
+        .expect("unreachable");
 
     let access_token: String = Input::with_theme(&ColorfulTheme::default())
         .with_prompt("What is the access_token of the OneBot server? (Optional)")
         .default("".to_string())
         .show_default(false)
         .interact_text()
-        .unwrap();
+        .expect("unreachable");
 
     let main_admin: i64 = Input::with_theme(&ColorfulTheme::default())
         .with_prompt("What is the ID of the main administrator? (Not used yet)")
         .allow_empty(true)
         .interact_text()
-        .unwrap();
+        .expect("unreachable");
 
     // 是否查看更多可选选项
     let more: bool = {
@@ -562,7 +563,7 @@ fn config_file_write_and_return() -> Result<KoviConf, std::io::Error> {
             .items(&items)
             .default(0)
             .interact()
-            .unwrap();
+            .expect("unreachable");
 
         match select {
             0 => false,
@@ -582,7 +583,7 @@ fn config_file_write_and_return() -> Result<KoviConf, std::io::Error> {
                 .items(&items)
                 .default(0)
                 .interact()
-                .unwrap();
+                .expect("unreachable");
 
             match select {
                 0 => false,

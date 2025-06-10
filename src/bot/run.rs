@@ -65,7 +65,7 @@ impl Bot {
                 Self::ws_connect(server, api_rx, event_tx, bot.clone())
             });
 
-            let connect_res = connect_task.await.unwrap();
+            let connect_res = connect_task.await.expect("unreachable");
 
             if let Err(e) = connect_res {
                 error!(
@@ -188,11 +188,11 @@ impl ExitCheck {
 
         #[cfg(windows)]
         {
-            let mut sig_ctrl_break = windows::ctrl_break().unwrap();
-            let mut sig_ctrl_c = windows::ctrl_c().unwrap();
-            let mut sig_ctrl_close = windows::ctrl_close().unwrap();
-            let mut sig_ctrl_logoff = windows::ctrl_logoff().unwrap();
-            let mut sig_ctrl_shutdown = windows::ctrl_shutdown().unwrap();
+            let mut sig_ctrl_break = windows::ctrl_break().expect("unreachable");
+            let mut sig_ctrl_c = windows::ctrl_c().expect("unreachable");
+            let mut sig_ctrl_close = windows::ctrl_close().expect("unreachable");
+            let mut sig_ctrl_logoff = windows::ctrl_logoff().expect("unreachable");
+            let mut sig_ctrl_shutdown = windows::ctrl_shutdown().expect("unreachable");
 
             tokio::select! {
                 _ = sig_ctrl_break.recv() => {}
@@ -205,11 +205,11 @@ impl ExitCheck {
 
         #[cfg(unix)]
         {
-            let mut sig_hangup = signal(SignalKind::hangup()).unwrap();
-            let mut sig_alarm = signal(SignalKind::alarm()).unwrap();
-            let mut sig_interrupt = signal(SignalKind::interrupt()).unwrap();
-            let mut sig_quit = signal(SignalKind::quit()).unwrap();
-            let mut sig_terminate = signal(SignalKind::terminate()).unwrap();
+            let mut sig_hangup = signal(SignalKind::hangup()).expect("unreachable");
+            let mut sig_alarm = signal(SignalKind::alarm()).expect("unreachable");
+            let mut sig_interrupt = signal(SignalKind::interrupt()).expect("unreachable");
+            let mut sig_quit = signal(SignalKind::quit()).expect("unreachable");
+            let mut sig_terminate = signal(SignalKind::terminate()).expect("unreachable");
 
             tokio::select! {
                 _ = sig_hangup.recv() => {}
@@ -223,7 +223,7 @@ impl ExitCheck {
 
     pub async fn await_exit_signal_change(&self) {
         let mut rx = self.watch_rx.clone();
-        rx.changed().await.unwrap();
+        rx.changed().await.expect("The exit signal wait failed");
     }
 }
 
@@ -232,7 +232,7 @@ pub(crate) async fn exit_signal_check(tx: Sender<InternalEvent>) {
 
     tx.send(InternalEvent::KoviEvent(KoviEvent::Drop))
         .await
-        .unwrap();
+        .expect("The exit signal send failed");
 }
 
 async fn handler_second_time_exit_signal() {

@@ -64,7 +64,9 @@ pub fn send_api_request(
                 let api_tx = api_tx.clone();
 
                 tokio::task::spawn(async move {
-                    api_tx.send(v).await.unwrap();
+                    if let Err(e) = api_tx.send(v).await {
+                        error!("The mpsc sender failed to send API request: {}", e);
+                    }
                 });
             }
             mpsc::error::TrySendError::Closed(_) => {
@@ -86,7 +88,9 @@ pub fn send_api_request_with_forget(api_tx: &mpsc::Sender<ApiAndOneshot>, send_a
                 let api_tx = api_tx.clone();
 
                 tokio::task::spawn(async move {
-                    api_tx.send(v).await.unwrap();
+                    if let Err(e) = api_tx.send(v).await {
+                        error!("The mpsc sender failed to send API request: {}", e);
+                    }
                 });
             }
             mpsc::error::TrySendError::Closed(_) => {

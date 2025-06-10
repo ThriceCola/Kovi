@@ -59,7 +59,7 @@ impl Bot {
         }
 
         let (res1, res2) = tokio::join!(event_connected_rx, api_connected_rx);
-        let (res1, res2) = (res1.unwrap(), res2.unwrap());
+        let (res1, res2) = (res1.expect("unreachable"), res2.expect("unreachable"));
         match (res1, res2) {
             (Ok(_), Ok(_)) => Ok(()),
             (Err(e), _) | (_, Err(e)) => Err(e),
@@ -80,33 +80,37 @@ impl Bot {
             Host::IpAddr(ip) => match ip {
                 IpAddr::V4(ip) => format!("{}://{}:{}/event", protocol, ip, port)
                     .into_client_request()
-                    .unwrap(),
+                    .expect("The domain name is invalid"),
                 IpAddr::V6(ip) => format!("{}://[{}]:{}/event", protocol, ip, port)
                     .into_client_request()
-                    .unwrap(),
+                    .expect("The domain name is invalid"),
             },
             Host::Domain(domain) => format!("{}://{}:{}/event", protocol, domain, port)
                 .into_client_request()
-                .unwrap(),
+                .expect("The domain name is invalid"),
         };
 
         //增加Authorization头
         if !access_token.is_empty() {
             request.headers_mut().insert(
                 "Authorization",
-                HeaderValue::from_str(&format!("Bearer {}", access_token)).unwrap(),
+                HeaderValue::from_str(&format!("Bearer {}", access_token)).expect("unreachable"),
             );
         }
 
         let (ws_stream, _) = match connect_async(request).await {
             Ok(v) => v,
             Err(e) => {
-                connected_tx.send(Err(e.into())).unwrap();
+                connected_tx
+                    .send(Err(e.into()))
+                    .expect("The OneBot connect channel has been established");
                 return;
             }
         };
 
-        connected_tx.send(Ok(())).unwrap();
+        connected_tx
+            .send(Ok(()))
+            .expect("The OneBot connect channel has been established");
 
         let (_, read) = ws_stream.split();
 
@@ -129,33 +133,37 @@ impl Bot {
             Host::IpAddr(ip) => match ip {
                 IpAddr::V4(ip) => format!("{}://{}:{}/api", protocol, ip, port)
                     .into_client_request()
-                    .unwrap(),
+                    .expect("The domain name is invalid"),
                 IpAddr::V6(ip) => format!("{}://[{}]:{}/api", protocol, ip, port)
                     .into_client_request()
-                    .unwrap(),
+                    .expect("The domain name is invalid"),
             },
             Host::Domain(domain) => format!("{}://{}:{}/api", protocol, domain, port)
                 .into_client_request()
-                .unwrap(),
+                .expect("The domain name is invalid"),
         };
 
         //增加Authorization头
         if !access_token.is_empty() {
             request.headers_mut().insert(
                 "Authorization",
-                HeaderValue::from_str(&format!("Bearer {}", access_token)).unwrap(),
+                HeaderValue::from_str(&format!("Bearer {}", access_token)).expect("unreachable"),
             );
         }
 
         let (ws_stream, _) = match connect_async(request).await {
             Ok(v) => v,
             Err(e) => {
-                connected_tx.send(Err(e.into())).unwrap();
+                connected_tx
+                    .send(Err(e.into()))
+                    .expect("The OneBot connect channel has been established");
                 return;
             }
         };
 
-        connected_tx.send(Ok(())).unwrap();
+        connected_tx
+            .send(Ok(()))
+            .expect("The OneBot connect channel has been established");
 
         let (write, read) = ws_stream.split();
         let api_tx_map: ApiTxMap = Arc::new(Mutex::new(HashMap::<_, _, RandomState>::new()));
@@ -202,7 +210,7 @@ async fn ws_event_connect_read(
             return;
         }
 
-        let text = msg.to_text().unwrap();
+        let text = msg.to_text().expect("unreachable");
         if let Err(e) = event_tx
             .send(InternalEvent::OneBotEvent(text.to_string()))
             .await
@@ -241,7 +249,7 @@ async fn ws_send_api_read(
             return;
         }
 
-        let text = msg.to_text().unwrap();
+        let text = msg.to_text().expect("unreachable");
 
         debug!("{}", text);
 
@@ -263,7 +271,7 @@ async fn ws_send_api_read(
 
         let mut api_tx_map = api_tx_map.lock();
 
-        let api_tx = api_tx_map.remove(&return_value.echo).unwrap();
+        let api_tx = api_tx_map.remove(&return_value.echo).expect("unreachable");
         let r = if return_value.status.to_lowercase() == "ok" {
             api_tx.send(Ok(return_value))
         } else {

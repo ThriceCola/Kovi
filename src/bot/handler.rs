@@ -1,17 +1,18 @@
 use crate::{
     bot::{
-        plugin_builder::{ListenInner, event::Event},
+        plugin_builder::{
+            ListenInner,
+            event::{Event, lifecycle_event::LifecycleEvent},
+        },
         *,
     },
     plugin::PLUGIN_NAME,
-    types::{ApiAndOneshot, NoArgsFn},
+    types::ApiAndOneshot,
 };
-use log::{debug, error, info, warn};
+use log::info;
 use parking_lot::RwLock;
-use plugin_builder::event::{MsgEvent, NoticeEvent, RequestEvent};
-use serde_json::{Value, json};
+use plugin_builder::event::MsgEvent;
 use std::{rc::Rc, sync::Arc};
-use tokio::sync::oneshot;
 
 /// Kovi内部事件
 pub enum InternalEvent {
@@ -58,59 +59,58 @@ impl Bot {
     }
 
     async fn handler_msg(bot: Arc<RwLock<Self>>, msg: String, api_tx: mpsc::Sender<ApiAndOneshot>) {
-        let msg_json: Value = match serde_json::from_str(&msg) {
-            Ok(json) => json,
-            Err(e) => {
-                error!("Failed to parse JSON from message: {}", e);
-                return;
-            }
-        };
-
-        debug!("{msg_json}");
-
-        if let Some(meta_event_type) = msg_json.get("meta_event_type") {
-            match meta_event_type.as_str() {
-                Some("lifecycle") => {
-                    Self::handler_lifecycle(api_tx).await;
-                    return;
-                }
-                Some("heartbeat") => {
-                    return;
-                }
-                Some(_) | None => {
-                    return;
-                }
-            }
-        }
-
-        let post_type = match msg_json.get("post_type") {
-            Some(value) => match value.as_str() {
-                Some(s) => s,
-                None => {
-                    error!("Invalid 'post_type' value in message JSON");
-                    return;
-                }
-            },
-            None => {
-                error!("Missing 'post_type' in message JSON");
-                return;
-            }
-        };
-
-        //     info!("[{message_type}{group_id}{nickname} {id}]: {text}");
+        // debug!("{msg_json}");
 
         let bot_read = bot.read();
 
         let mut cache: ahash::HashMap<std::any::TypeId, Option<Arc<dyn Event>>> =
             ahash::HashMap::default();
 
+        if let Some(lifecycle_event) = LifecycleEvent::de(&msg, &bot_read.information, &api_tx) {
+            tokio::spawn(LifecycleEvent::handler_lifecycle(api_tx.clone()));
+            cache.insert(
+                std::any::TypeId::of::<LifecycleEvent>(),
+                Some(Arc::new(lifecycle_event)),
+            );
+        };
+
+        let msg_event = MsgEvent::de(&msg, &bot_read.information, &api_tx);
+
+        let msg_sevent_opt = match msg_event {
+            Some(event) => {
+                let event = Arc::new(event);
+
+                info!(
+                    "[{message_type}{group_id}{nickname} {id}]: {text}",
+                    message_type = event.message_type,
+                    group_id = match event.group_id {
+                        Some(id) => id.to_string(),
+                        None => "".to_string(),
+                    },
+                    nickname = match &event.sender.nickname {
+                        Some(nickname) => nickname,
+                        None => "",
+                    },
+                    id = event.sender.user_id,
+                    text = event.message.to_human_string()
+                );
+
+                cache.insert(std::any::TypeId::of::<MsgEvent>(), Some(event.clone()));
+
+                Some(event)
+            }
+            None => None,
+        };
+
         let msg: Rc<str> = Rc::from(msg);
         for (name, plugin) in bot_read.plugins.iter() {
-            // // 判断是否黑白名单
-            // #[cfg(feature = "plugin-access-control")]
-            // if !is_access(plugin, &e) {
-            //     continue;
-            // }
+            if let Some(event) = &msg_sevent_opt {
+                // 判断是否黑白名单
+                #[cfg(feature = "plugin-access-control")]
+                if !is_access(plugin, event) {
+                    continue;
+                }
+            }
 
             let name_ = Arc::new(name.clone());
             let msg = msg.clone();
@@ -127,8 +127,7 @@ impl Bot {
                         Some(event) => event.clone(),
                     },
                     None => {
-                        let event_opt = (listen.type_de)(&msg, &*bot_read, api_tx);
-                        println!("!!!: 11 type: {:?}", listen.type_id);
+                        let event_opt = (listen.type_de)(&msg, &bot_read.information, &api_tx);
                         cache.insert(listen.type_id, event_opt.clone());
                         match event_opt {
                             Some(event) => event,
@@ -151,7 +150,10 @@ impl Bot {
 
         async fn monitor_enabled_state(mut enabled: watch::Receiver<bool>) {
             loop {
-                enabled.changed().await.unwrap();
+                enabled
+                    .changed()
+                    .await
+                    .expect("The enabled signal was dropped");
                 if !*enabled.borrow_and_update() {
                     break;
                 }
@@ -161,59 +163,6 @@ impl Bot {
 
     async fn handle_listen(listen: Arc<ListenInner>, cache_event: Arc<dyn Event + 'static>) {
         (*listen.handler)(cache_event).await;
-    }
-
-    pub(crate) async fn handler_lifecycle(api_tx_: mpsc::Sender<ApiAndOneshot>) {
-        let api_msg = SendApi::new("get_login_info", json!({}), "kovi");
-
-        #[allow(clippy::type_complexity)]
-        let (api_tx, api_rx): (
-            oneshot::Sender<Result<ApiReturn, ApiReturn>>,
-            oneshot::Receiver<Result<ApiReturn, ApiReturn>>,
-        ) = oneshot::channel();
-
-        api_tx_.send((api_msg, Some(api_tx))).await.unwrap();
-
-        let receive = match api_rx.await {
-            Ok(v) => v,
-            Err(e) => {
-                error!("Lifecycle Error, get bot info failed: {}", e);
-                return;
-            }
-        };
-
-        let self_info_value = match receive {
-            Ok(v) => v,
-            Err(e) => {
-                error!("Lifecycle Error, get bot info failed: {}", e);
-                return;
-            }
-        };
-
-        let self_id = match self_info_value.data.get("user_id") {
-            Some(user_id) => match user_id.as_i64() {
-                Some(id) => id,
-                None => {
-                    error!("Expected 'user_id' to be an integer");
-                    return;
-                }
-            },
-            None => {
-                error!("Missing 'user_id' in self_info_value data");
-                return;
-            }
-        };
-        let self_name = match self_info_value.data.get("nickname") {
-            Some(nickname) => nickname.to_string(),
-            None => {
-                error!("Missing 'nickname' in self_info_value data");
-                return;
-            }
-        };
-        info!(
-            "Bot connection successful，Nickname:{},ID:{}",
-            self_name, self_id
-        );
     }
 }
 
@@ -229,13 +178,13 @@ fn is_access(plugin: &Plugin, event: &MsgEvent) -> bool {
     match (plugin.list_mode, in_group) {
         (AccessControlMode::WhiteList, true) => access_list
             .groups
-            .contains(event.group_id.as_ref().unwrap()),
+            .contains(event.group_id.as_ref().expect("unreachable")),
         (AccessControlMode::WhiteList, false) => {
             access_list.friends.contains(&event.sender.user_id)
         }
         (AccessControlMode::BlackList, true) => !access_list
             .groups
-            .contains(event.group_id.as_ref().unwrap()),
+            .contains(event.group_id.as_ref().expect("unreachable")),
         (AccessControlMode::BlackList, false) => {
             !access_list.friends.contains(&event.sender.user_id)
         }

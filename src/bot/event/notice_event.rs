@@ -1,6 +1,13 @@
-use serde_json::{value::Index, Value};
-
 use super::EventBuildError;
+use crate::{
+    bot::{
+        BotInformation,
+        plugin_builder::event::{Event, PostType},
+    },
+    types::ApiAndOneshot,
+};
+use serde_json::{Value, value::Index};
+use tokio::sync::mpsc;
 
 #[derive(Debug, Clone)]
 pub struct NoticeEvent {
@@ -9,13 +16,19 @@ pub struct NoticeEvent {
     /// 收到事件的机器人 登陆号
     pub self_id: i64,
     /// 上报类型
-    pub post_type: String,
+    pub post_type: PostType,
     /// 通知类型
     pub notice_type: String,
 
     /// 原始的onebot消息，已处理成json格式
     pub original_json: Value,
 }
+impl Event for NoticeEvent {
+    fn de(json_str: &str, _: &BotInformation, _: &mpsc::Sender<ApiAndOneshot>) -> Option<Self> {
+        Self::new(json_str).ok()
+    }
+}
+
 impl NoticeEvent {
     pub(crate) fn new(msg: &str) -> Result<NoticeEvent, EventBuildError> {
         let temp: Value =
@@ -30,9 +43,8 @@ impl NoticeEvent {
             .ok_or(EventBuildError::ParseError("self_id".to_string()))?;
         let post_type = temp
             .get("post_type")
-            .and_then(Value::as_str)
-            .map(String::from)
-            .ok_or(EventBuildError::ParseError("post_type".to_string()))?;
+            .and_then(|v| serde_json::from_value::<PostType>(v.clone()).ok())
+            .ok_or(EventBuildError::ParseError("Invalid post_type".to_string()))?;
         let notice_type = temp
             .get("notice_type")
             .and_then(Value::as_str)

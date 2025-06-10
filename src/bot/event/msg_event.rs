@@ -1,16 +1,18 @@
 use super::{Anonymous, EventBuildError, Sender};
+use crate::bot::BotInformation;
+use crate::bot::message::cq_to_arr_inner;
+use crate::bot::plugin_builder::event::{Event, PostType};
 use crate::bot::runtimebot::send_api_request_with_forget;
-use crate::plugin::plugin_builder::event::Sex;
 use crate::types::ApiAndOneshot;
-use crate::{Message, bot::SendApi};
+use crate::{
+    Message,
+    bot::{SendApi, plugin_builder::event::Sex},
+};
 use log::{debug, info};
 use serde::Serialize;
 use serde_json::value::Index;
 use serde_json::{self, Value, json};
 use tokio::sync::mpsc;
-
-#[cfg(not(feature = "cqstring"))]
-use log::error;
 
 #[cfg(feature = "cqstring")]
 use crate::bot::message::{CQMessage, cq_to_arr};
@@ -25,7 +27,7 @@ pub struct MsgEvent {
     /// 收到事件的机器人 登陆号
     pub self_id: i64,
     /// 上报类型
-    pub post_type: String,
+    pub post_type: PostType,
     /// 消息类型
     pub message_type: String,
     /// 消息子类型，如果是好友则是 friend，如果是群临时会话则是 group
@@ -57,21 +59,29 @@ pub struct MsgEvent {
     api_tx: mpsc::Sender<ApiAndOneshot>,
 }
 
+impl Event for MsgEvent {
+    fn de(
+        json_str: &str,
+        _: &BotInformation,
+        api_tx: &mpsc::Sender<ApiAndOneshot>,
+    ) -> Option<Self> {
+        let json = serde_json::from_str(json_str).ok()?;
+        Self::new(api_tx.clone(), json).ok()
+    }
+}
+
 impl MsgEvent {
     pub(crate) fn new(
         api_tx: mpsc::Sender<ApiAndOneshot>,
-        msg: &str,
+        mut temp: Value,
     ) -> Result<MsgEvent, EventBuildError> {
-        let temp: Value =
-            serde_json::from_str(msg).map_err(|e| EventBuildError::ParseError(e.to_string()))?;
-
-        let temp_object = temp.as_object().ok_or(EventBuildError::ParseError(
+        let temp_object = temp.as_object_mut().ok_or(EventBuildError::ParseError(
             "Invalid JSON object".to_string(),
         ))?;
 
         let temp_sender = temp_object
-            .get("sender")
-            .and_then(|v| v.as_object())
+            .get_mut("sender")
+            .and_then(|v| v.as_object_mut())
             .ok_or(EventBuildError::ParseError(
                 "Invalid sender object".to_string(),
             ))?;
@@ -79,17 +89,23 @@ impl MsgEvent {
         let sender = {
             Sender {
                 user_id: temp_sender
-                    .get("user_id")
+                    .get_mut("user_id")
                     .and_then(|v| v.as_i64())
                     .ok_or(EventBuildError::ParseError("Invalid user_id".to_string()))?,
-                nickname: temp_sender
-                    .get("nickname")
-                    .and_then(|v| v.as_str())
-                    .map(|v| v.to_string()),
-                card: temp_sender
-                    .get("card")
-                    .and_then(|v| v.as_str())
-                    .map(|v| v.to_string()),
+                nickname: temp_sender.get_mut("nickname").and_then(|v| {
+                    if let Value::String(str) = v.take() {
+                        Some(str)
+                    } else {
+                        None
+                    }
+                }),
+                card: temp_sender.get_mut("card").and_then(|v| {
+                    if let Value::String(str) = v.take() {
+                        Some(str)
+                    } else {
+                        None
+                    }
+                }),
                 sex: if let Some(v) = temp_sender.get("sex").and_then(|v| v.as_str()) {
                     match v {
                         "male" => Some(Sex::Male),
@@ -103,22 +119,34 @@ impl MsgEvent {
                     .get("age")
                     .and_then(|v| v.as_i64())
                     .map(|v| v as i32),
-                area: temp_sender
-                    .get("area")
-                    .and_then(|v| v.as_str())
-                    .map(|v| v.to_string()),
-                level: temp_sender
-                    .get("level")
-                    .and_then(|v| v.as_str())
-                    .map(|v| v.to_string()),
-                role: temp_sender
-                    .get("role")
-                    .and_then(|v| v.as_str())
-                    .map(|v| v.to_string()),
-                title: temp_sender
-                    .get("title")
-                    .and_then(|v| v.as_str())
-                    .map(|v| v.to_string()),
+                area: temp_sender.get_mut("area").and_then(|v| {
+                    if let Value::String(str) = v.take() {
+                        Some(str)
+                    } else {
+                        None
+                    }
+                }),
+                level: temp_sender.get_mut("level").and_then(|v| {
+                    if let Value::String(str) = v.take() {
+                        Some(str)
+                    } else {
+                        None
+                    }
+                }),
+                role: temp_sender.get_mut("role").and_then(|v| {
+                    if let Value::String(str) = v.take() {
+                        Some(str)
+                    } else {
+                        None
+                    }
+                }),
+                title: temp_sender.get_mut("title").and_then(|v| {
+                    if let Value::String(str) = v.take() {
+                        Some(str)
+                    } else {
+                        None
+                    }
+                }),
             }
         };
 
@@ -142,25 +170,16 @@ impl MsgEvent {
             Message::from_vec_segment_value(v)
                 .map_err(|e| EventBuildError::ParseError(format!("Parse error: {}", e)))?
         } else {
-            #[cfg(feature = "cqstring")]
-            {
-                let str = temp_object
-                    .get("message")
-                    .and_then(|v| v.as_str())
-                    .ok_or(EventBuildError::ParseError(
-                        "Invalid message string".to_string(),
-                    ))?
-                    .to_string();
-                cq_to_arr(CQMessage::from(str))
-            }
-            #[cfg(not(feature = "cqstring"))]
-            {
-                // 不开启cqstring特性，不能用。
-                error!("不开启cqstring feature，不能使用cq码");
-                return Err(EventBuildError::ParseError(
-                    "cqstring feature is disabled".to_string(),
-                ));
-            }
+            let str_v = temp_object["message"]
+                .as_str()
+                .ok_or(format!(
+                    "message is not string:{:?}",
+                    temp_object["message"]
+                ))
+                .map_err(|e| EventBuildError::ParseError(format!("Parse error: {}", e)))?;
+            let arr_v = cq_to_arr_inner(str_v);
+            Message::from_vec_segment_value(arr_v)
+                .map_err(|e| EventBuildError::ParseError(format!("Parse error: {}", e)))?
         };
 
         let anonymous: Option<Anonymous> =
@@ -168,11 +187,11 @@ impl MsgEvent {
                 None
             } else {
                 let anonymous = temp_object
-                    .get("anonymous")
+                    .get_mut("anonymous")
                     .ok_or(EventBuildError::ParseError(
                         "Invalid anonymous field".to_string(),
                     ))?
-                    .clone();
+                    .take();
                 Some(
                     serde_json::from_value(anonymous)
                         .map_err(|e| EventBuildError::ParseError(e.to_string()))?,
@@ -206,21 +225,30 @@ impl MsgEvent {
                 .and_then(|v| v.as_i64())
                 .ok_or(EventBuildError::ParseError("Invalid self_id".to_string()))?,
             post_type: temp_object
-                .get("post_type")
-                .and_then(|v| v.as_str())
-                .map(|v| v.to_string())
+                .get_mut("post_type")
+                .and_then(|v| serde_json::from_value::<PostType>(v.take()).ok())
                 .ok_or(EventBuildError::ParseError("Invalid post_type".to_string()))?,
             message_type: temp_object
-                .get("message_type")
-                .and_then(|v| v.as_str())
-                .map(|v| v.to_string())
+                .get_mut("message_type")
+                .and_then(|v| {
+                    if let Value::String(str) = v.take() {
+                        Some(str)
+                    } else {
+                        None
+                    }
+                })
                 .ok_or(EventBuildError::ParseError(
                     "Invalid message_type".to_string(),
                 ))?,
             sub_type: temp_object
-                .get("sub_type")
-                .and_then(|v| v.as_str())
-                .map(|v| v.to_string())
+                .get_mut("sub_type")
+                .and_then(|v| {
+                    if let Value::String(str) = v.take() {
+                        Some(str)
+                    } else {
+                        None
+                    }
+                })
                 .ok_or(EventBuildError::ParseError("Invalid sub_type".to_string()))?,
             message,
             message_id: temp_object
@@ -236,9 +264,14 @@ impl MsgEvent {
                 .ok_or(EventBuildError::ParseError("Invalid user_id".to_string()))?,
             anonymous,
             raw_message: temp_object
-                .get("raw_message")
-                .and_then(|v| v.as_str())
-                .map(|v| v.to_string())
+                .get_mut("raw_message")
+                .and_then(|v| {
+                    if let Value::String(str) = v.take() {
+                        Some(str)
+                    } else {
+                        None
+                    }
+                })
                 .ok_or(EventBuildError::ParseError(
                     "Invalid raw_message".to_string(),
                 ))?,
@@ -308,7 +341,7 @@ impl MsgEvent {
                 "send_msg",
                 json!({
                     "message_type":"group",
-                    "group_id":self.group_id.unwrap(),
+                    "group_id":self.group_id.expect("unreachable"),
                     "message":msg,
                     "auto_escape":auto_escape,
                 }),

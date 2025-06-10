@@ -298,8 +298,14 @@ impl RuntimeBot {
 /// 工具
 impl RuntimeBot {
     /// 获取插件自己的路径
+    ///
+    /// # panic
+    ///
+    /// 可能会 panic 的情况：
+    ///  - 当前运行目录不存在，这种情况很少见。
+    ///  - 权限不足，无法访问当前目录，这样肯定不能运行插件。
     pub fn get_data_path(&self) -> PathBuf {
-        let mut current_dir = std::env::current_dir().unwrap();
+        let mut current_dir = std::env::current_dir().expect("Get current directory failed");
 
         current_dir.push(format!("data/{}", self.plugin_name));
         current_dir
@@ -350,12 +356,16 @@ impl RuntimeBot {
     ///
     /// 如果此 `RuntimeBot` 实例内部的 `Bot` 中已经不存在，将会返回Err `BotError::RefExpired` 。
     /// 这通常出现在 `Bot` 已经关闭，可有个不受 Kovi 管理的线程仍然拥有此 `RuntimeBot`。
+    ///
+    /// # panic
+    ///
+    /// 如果插件的 Drop 闭包发生 panic ，此函数也会 panic
     pub async fn restart_plugin<T: AsRef<str>>(&self, plugin_name: T) -> Result<(), BotError> {
         if self.is_plugin_enable(&plugin_name)? {
             let join = self.disable_plugin(&plugin_name)?;
 
             if let Some(join) = join {
-                join.await.unwrap()
+                join.await.expect("Internal thread panic")
             }
         }
 
