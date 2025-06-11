@@ -1,3 +1,5 @@
+pub mod plugin_builder;
+
 use crate::PluginBuilder;
 use crate::bot::plugin_builder::Listen;
 #[cfg(feature = "plugin-access-control")]
@@ -60,7 +62,7 @@ impl Plugin {
         }
     }
 
-    // 运行单个插件的main()
+    /// 运行单个插件的main()
     pub(crate) fn run(&self, plugin_builder: PluginBuilder) {
         let plugin_name = plugin_builder.runtime_bot.plugin_name.clone();
 

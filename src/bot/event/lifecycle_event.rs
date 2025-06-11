@@ -2,6 +2,7 @@ use crate::{
     ApiReturn,
     bot::{
         BotInformation, SendApi,
+        handler::InternalEvent,
         plugin_builder::event::{Event, PostType},
     },
     types::ApiAndOneshot,
@@ -11,18 +12,18 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::sync::{mpsc, oneshot};
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct LifecycleEvent {
-    meta_event_type: String,
-    post_type: PostType,
-    self_id: i64,
-    time: i64,
-    sub_type: LifecycleAction,
+    pub meta_event_type: String,
+    pub post_type: PostType,
+    pub self_id: i64,
+    pub time: i64,
+    pub sub_type: LifecycleAction,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
-enum LifecycleAction {
+pub enum LifecycleAction {
     Enable,
     Disable,
     Connect,
@@ -30,24 +31,28 @@ enum LifecycleAction {
 
 impl Event for LifecycleEvent {
     fn de(
-        json_str: &str,
+        event: &InternalEvent,
         _: &BotInformation,
         _: &tokio::sync::mpsc::Sender<ApiAndOneshot>,
     ) -> Option<Self>
     where
         Self: Sized,
     {
-        if json_str.contains("lifecycle") {
+        let InternalEvent::OneBotEvent(json_str) = event else {
             return None;
+        };
+        let event: LifecycleEvent = serde_json::from_str(json_str).ok()?;
+        if event.meta_event_type == "lifecycle" {
+            Some(event)
+        } else {
+            None
         }
-
-        serde_json::from_str(json_str).ok()
     }
 }
 
 impl LifecycleEvent {
     pub(crate) async fn handler_lifecycle(api_tx_: mpsc::Sender<ApiAndOneshot>) {
-        let api_msg = SendApi::new("get_login_info", json!({}), "kovi");
+        let api_msg = SendApi::new("get_login_info", json!({}));
 
         #[allow(clippy::type_complexity)]
         let (api_tx, api_rx): (

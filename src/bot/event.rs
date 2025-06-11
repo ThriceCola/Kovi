@@ -1,4 +1,7 @@
-use crate::{bot::BotInformation, types::ApiAndOneshot};
+use crate::{
+    bot::{BotInformation, handler::InternalEvent},
+    types::ApiAndOneshot,
+};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use thiserror::Error;
@@ -6,6 +9,8 @@ use thiserror::Error;
 pub use admin_msg_event::AdminMsgEvent;
 pub use group_msg_event::GroupMsgEvent;
 pub use msg_event::MsgEvent;
+pub use msg_send_from_kovi_event::MsgSendFromKoviEvent;
+pub use msg_send_from_server_event::MsgSendFromServerEvent;
 pub use notice_event::NoticeEvent;
 pub use private_msg_event::PrivateMsgEvent;
 pub use request_event::RequestEvent;
@@ -14,6 +19,8 @@ pub mod admin_msg_event;
 pub mod group_msg_event;
 pub mod lifecycle_event;
 pub mod msg_event;
+pub mod msg_send_from_kovi_event;
+pub mod msg_send_from_server_event;
 pub mod notice_event;
 pub mod private_msg_event;
 pub mod request_event;
@@ -50,21 +57,45 @@ pub struct Anonymous {
     pub flag: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PostType {
     Message,
     Notice,
     Request,
     MetaEvent,
+    MessageSent,
+
+    Other(String),
+}
+
+impl<'de> Deserialize<'de> for PostType {
+    fn deserialize<D>(deserializer: D) -> Result<PostType, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        let post_type = match s.as_str() {
+            "message" => PostType::Message,
+            "notice" => PostType::Notice,
+            "request" => PostType::Request,
+            "meta_event" => PostType::MetaEvent,
+            "message_sent" => PostType::MessageSent,
+            _ => PostType::Other(s),
+        };
+        Ok(post_type)
+    }
 }
 
 /// 满足此 trait 即可在Kovi运行时中监听并处理
+///
+/// # Warning !!!!!
+///
+/// 请不要阻塞解析事件，如果目标信息需要阻塞获取，请通知用户由用户处理，而非由事件解析器阻塞
 pub trait Event: Any + Send + Sync {
     /// 解析事件
     ///
     /// 传入三个东西，按需所取。
-    ///  - 原始的json字符串
+    ///  - InternalEvent 内部消息，包含OneBot消息与由框架发出去的Api消息
     ///  - 借用的bot信息，可以通过 `BotInformation` 获取 `Bot` 相关的信息，例如管理员是谁。
     ///  - 借用的api发送通道，可以通过 `api_tx.clone()` 来让事件可以发送 api
     ///
@@ -77,22 +108,41 @@ pub trait Event: Any + Send + Sync {
     /// ```
     /// impl Event for LifecycleEvent {
     ///     fn de(
-    ///         json_str: &str,
+    ///         event: &InternalEvent,
     ///         _: &BotInformation,
     ///         _: &tokio::sync::mpsc::Sender<ApiAndOneshot>,
     ///     ) -> Option<Self>
     ///     where
     ///         Self: Sized,
     ///     {
-    ///         if json_str.contains("lifecycle") {
+    ///         let InternalEvent::OneBotEvent(json_str) = event else {
     ///             return None;
+    ///         };
+    ///         let event: LifecycleEvent = serde_json::from_str(json_str).ok()?;
+    ///         if event.meta_event_type == "lifecycle" {
+    ///             Some(event)
+    ///         } else {
+    ///             None
     ///         }
-    ///         serde_json::from_str(json_str).ok()
     ///     }
     /// }
     /// ```
+    ///
+    /// # Warning !!!!!
+    ///
+    /// 请不要阻塞解析事件，如果目标信息需要阻塞，请通知用户由用户处理，而非由事件解析器阻塞。
+    ///
+    /// 类似于 `MsgSendFromKoviEvent` 的实现，将所需的交给用户就行。
+    ///
+    /// ```
+    /// pub struct MsgSendFromKoviEvent {
+    ///     pub event_type: MsgSendFromKoviType,
+    ///     pub send_api: SendApi,
+    ///     pub res: Result<ApiReturn, ApiReturn>,
+    /// }
+    /// ```
     fn de(
-        json_str: &str,
+        event: &InternalEvent,
         bot_info: &BotInformation,
         api_tx: &tokio::sync::mpsc::Sender<ApiAndOneshot>,
     ) -> Option<Self>

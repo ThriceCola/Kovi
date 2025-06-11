@@ -2,6 +2,7 @@ use super::EventBuildError;
 use crate::{
     bot::{
         BotInformation,
+        handler::InternalEvent,
         plugin_builder::event::{Event, PostType},
     },
     types::ApiAndOneshot,
@@ -24,7 +25,14 @@ pub struct NoticeEvent {
     pub original_json: Value,
 }
 impl Event for NoticeEvent {
-    fn de(json_str: &str, _: &BotInformation, _: &mpsc::Sender<ApiAndOneshot>) -> Option<Self> {
+    fn de(
+        event: &InternalEvent,
+        _: &BotInformation,
+        _: &mpsc::Sender<ApiAndOneshot>,
+    ) -> Option<Self> {
+        let InternalEvent::OneBotEvent(json_str) = event else {
+            return None;
+        };
         Self::new(json_str).ok()
     }
 }

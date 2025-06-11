@@ -2,6 +2,7 @@ use ahash::{HashMapExt as _, RandomState};
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Input, Select};
 use plugin_builder::Listen;
+use rand::Rng as _;
 #[cfg(feature = "plugin-access-control")]
 use runtimebot::kovi_api::AccessList;
 use serde::{Deserialize, Serialize};
@@ -20,6 +21,7 @@ use crate::error::{BotBuildError, BotError};
 use crate::RT;
 #[cfg(feature = "plugin-access-control")]
 pub use crate::bot::runtimebot::kovi_api::AccessControlMode;
+
 use crate::plugin::{Plugin, PluginStatus};
 use crate::types::KoviAsyncFn;
 
@@ -27,9 +29,10 @@ pub(crate) mod connect;
 pub(crate) mod handler;
 pub(crate) mod run;
 
+// 兼容
+pub use crate::plugin::plugin_builder;
 pub mod event;
 pub mod message;
-pub mod plugin_builder;
 pub mod runtimebot;
 
 /// bot结构体
@@ -81,7 +84,7 @@ impl Bot {
         }
     }
 
-    /// 挂载插件的启动函数。
+    /// 挂载插件。
     #[deprecated(since = "0.12.0", note = "请使用 `mount_plugin` 代替")]
     pub fn mount_main<T>(&mut self, name: T, version: T, main: Arc<KoviAsyncFn>)
     where
@@ -108,7 +111,7 @@ impl Bot {
         self.plugins.insert(name, bot_plugin);
     }
 
-    /// 挂载插件的启动函数。
+    /// 挂载插件。
     pub fn mount_plugin(&mut self, plugin: Plugin) {
         self.plugins.insert(plugin.name.clone(), plugin);
     }
@@ -373,7 +376,7 @@ impl Bot {
 pub struct SendApi {
     pub action: String,
     pub params: Value,
-    pub echo: String,
+    echo: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -381,7 +384,7 @@ pub struct ApiReturn {
     pub status: String,
     pub retcode: i32,
     pub data: Value,
-    pub echo: String,
+    pub(crate) echo: String,
 }
 
 /// kovi的配置
@@ -475,12 +478,22 @@ impl std::fmt::Display for SendApi {
 }
 
 impl SendApi {
-    pub fn new(action: &str, params: Value, echo: &str) -> Self {
+    pub fn new(action: &str, params: Value) -> Self {
         SendApi {
             action: action.to_string(),
             params,
-            echo: echo.to_string(),
+            echo: Self::rand_echo(),
         }
+    }
+
+    pub fn rand_echo() -> String {
+        let mut rng = rand::thread_rng();
+        let mut s = String::new();
+        s.push_str(&chrono::Utc::now().timestamp().to_string());
+        for _ in 0..10 {
+            s.push(rng.gen_range('a'..='z'));
+        }
+        s
     }
 }
 

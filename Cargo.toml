@@ -43,25 +43,14 @@ libloading = { version = "0.8", optional = true }
 
 
 [features]
-default = [
-    "logger",
-    "save_bot_status",
-    "plugin-access-control",
-    "message_sent",
-    # "dylib-plugin",
-    "dylib-runtime",
-]
+default = ["logger", "save_bot_status", "plugin-access-control"]
 logger = ["env_logger"]
 save_bot_status = ["save_bot_admin", "save_plugin_status"]
 save_bot_admin = []
 save_plugin_status = []
 plugin-access-control = []
 
-message_sent = []
 cqstring = []
-
-dylib-plugin = ["kovi-macros/dylib"]
-dylib-runtime = ["libloading"]
 
 native-tls-vendored = ["tokio-tungstenite/native-tls-vendored"]
 rustls-tls-webpki-roots = ["tokio-tungstenite/rustls-tls-webpki-roots"]

@@ -1,8 +1,9 @@
 use super::{Anonymous, EventBuildError, Sender};
 use crate::MsgEvent;
 use crate::bot::BotInformation;
+use crate::bot::handler::InternalEvent;
 use crate::bot::plugin_builder::event::{Event, PostType};
-use crate::bot::runtimebot::send_api_request_with_forget;
+use crate::bot::runtimebot::{CanSendApi, send_api_request_with_forget};
 use crate::types::ApiAndOneshot;
 use crate::{Message, bot::SendApi};
 use log::info;
@@ -56,10 +57,13 @@ pub struct GroupMsgEvent {
 
 impl Event for GroupMsgEvent {
     fn de(
-        json_str: &str,
+        event: &InternalEvent,
         _: &BotInformation,
         api_tx: &mpsc::Sender<ApiAndOneshot>,
     ) -> Option<Self> {
+        let InternalEvent::OneBotEvent(json_str) = event else {
+            return None;
+        };
         let json: Value = serde_json::from_str(json_str).ok()?;
         let event = Self::new(api_tx.clone(), json).ok()?;
 
@@ -146,7 +150,6 @@ impl GroupMsgEvent {
                 "message":msg,
                 "auto_escape":auto_escape,
             }),
-            "None",
         )
     }
 
@@ -261,5 +264,11 @@ impl GroupMsgEvent {
     /// 借用 event 的 text，只是做了一下self.text.as_deref()的包装
     pub fn borrow_text(&self) -> Option<&str> {
         self.text.as_deref()
+    }
+}
+
+impl CanSendApi for GroupMsgEvent {
+    fn __get_api_tx(&self) -> &tokio::sync::mpsc::Sender<crate::types::ApiAndOneshot> {
+        &self.api_tx
     }
 }

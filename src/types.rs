@@ -23,3 +23,5 @@ pub type ApiAndOneshot = (
     SendApi,
     Option<oneshot::Sender<Result<ApiReturn, ApiReturn>>>,
 );
+
+pub type ApiAndRuturn = (SendApi, Result<ApiReturn, ApiReturn>);

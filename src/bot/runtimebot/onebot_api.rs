@@ -3,7 +3,8 @@ use super::{
     send_api_request_with_response,
 };
 use crate::bot::ApiReturn;
-use crate::bot::{SendApi, message::Message, runtimebot::rand_echo};
+use crate::bot::runtimebot::CanSendApi;
+use crate::bot::{SendApi, message::Message};
 use log::info;
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -46,7 +47,6 @@ impl RuntimeBot {
                 "message":msg,
                 "auto_escape":true,
             }),
-            &rand_echo(),
         );
 
         let msg = Message::from(msg);
@@ -89,7 +89,6 @@ impl RuntimeBot {
                 "message":msg,
                 "auto_escape":true,
             }),
-            &rand_echo(),
         );
 
         let msg = CQMessage::from(msg);
@@ -131,7 +130,6 @@ impl RuntimeBot {
                 "user_id":user_id,
                 "message":msg,
                 "auto_escape":true,}),
-            &rand_echo(),
         );
 
         let msg = Message::from(msg);
@@ -171,7 +169,6 @@ impl RuntimeBot {
                 "user_id":user_id,
                 "message":msg,
                 "auto_escape":true,}),
-            &rand_echo(),
         );
 
         let msg = CQMessage::from(msg);
@@ -198,7 +195,7 @@ impl RuntimeBot {
 
     /// 是否能发送图片
     pub fn can_send_image(&self) -> impl std::future::Future<Output = Result<bool, ApiReturn>> {
-        let send_api = SendApi::new("can_send_image", json!({}), &rand_echo());
+        let send_api = SendApi::new("can_send_image", json!({}));
 
         let api_rx = send_api_request(&self.api_tx, send_api);
 
@@ -217,7 +214,7 @@ impl RuntimeBot {
 
     /// 是否能发送语音
     pub fn can_send_record(&self) -> impl std::future::Future<Output = Result<bool, ApiReturn>> {
-        let send_api = SendApi::new("can_send_record", json!({}), &rand_echo());
+        let send_api = SendApi::new("can_send_record", json!({}));
 
         let api_rx = send_api_request(&self.api_tx, send_api);
 
@@ -252,7 +249,6 @@ impl RuntimeBot {
                     "message":msg,
                     "auto_escape":true,
             }),
-            "None",
         );
         let msg = Message::from(msg);
         let group_id = &group_id;
@@ -275,7 +271,6 @@ impl RuntimeBot {
                     "message":msg,
                     "auto_escape":true,
             }),
-            "None",
         );
         let msg = CQMessage::from(msg);
         let group_id = &group_id;
@@ -301,7 +296,6 @@ impl RuntimeBot {
                     "message":msg,
                     "auto_escape":true,
             }),
-            "None",
         );
 
         let msg = Message::from(msg);
@@ -325,7 +319,6 @@ impl RuntimeBot {
                     "message":msg,
                     "auto_escape":true,
             }),
-            "None",
         );
 
         let msg = CQMessage::from(msg);
@@ -348,7 +341,6 @@ impl RuntimeBot {
             json!({
                 "message_id":message_id,
             }),
-            "None",
         );
 
         send_api_request_with_forget(&self.api_tx, send_api);
@@ -367,7 +359,6 @@ impl RuntimeBot {
                                 "user_id":user_id,
                     "times":times,
             }),
-            "None",
         );
 
         send_api_request_with_forget(&self.api_tx, send_api);
@@ -389,7 +380,6 @@ impl RuntimeBot {
                     "user_id":user_id,
                     "reject_add_request":reject_add_request,
             }),
-            "None",
         );
 
         send_api_request_with_forget(&self.api_tx, send_api);
@@ -412,7 +402,6 @@ impl RuntimeBot {
                     "user_id":user_id,
                     "duration":duration,
             }),
-            "None",
         );
 
         send_api_request_with_forget(&self.api_tx, send_api);
@@ -439,7 +428,6 @@ impl RuntimeBot {
                     "anonymous":anonymous,
                     "duration":duration,
             }),
-            "None",
         );
 
         send_api_request_with_forget(&self.api_tx, send_api);
@@ -461,7 +449,6 @@ impl RuntimeBot {
                     "flag":flag,
                     "duration":duration,
             }),
-            "None",
         );
 
         send_api_request_with_forget(&self.api_tx, send_api);
@@ -481,7 +468,6 @@ impl RuntimeBot {
                 "group_id":group_id,
                     "enable":enable,
             }),
-            "None",
         );
 
         send_api_request_with_forget(&self.api_tx, send_api);
@@ -504,7 +490,6 @@ impl RuntimeBot {
                     "user_id":user_id,
                     "enable":enable,
             }),
-            "None",
         );
 
         send_api_request_with_forget(&self.api_tx, send_api);
@@ -523,7 +508,6 @@ impl RuntimeBot {
                 "group_id":group_id,
                     "enable":enable,
             }),
-            "None",
         );
 
         send_api_request_with_forget(&self.api_tx, send_api);
@@ -546,7 +530,6 @@ impl RuntimeBot {
                     "user_id":user_id,
                     "card":card,
             }),
-            "None",
         );
 
         send_api_request_with_forget(&self.api_tx, send_api);
@@ -566,7 +549,6 @@ impl RuntimeBot {
                 "group_id":group_id,
                     "group_name":group_name,
             }),
-            "None",
         );
 
         send_api_request_with_forget(&self.api_tx, send_api);
@@ -586,7 +568,6 @@ impl RuntimeBot {
                 "group_id":group_id,
                     "is_dismiss":is_dismiss,
             }),
-            "None",
         );
 
         send_api_request_with_forget(&self.api_tx, send_api);
@@ -609,7 +590,6 @@ impl RuntimeBot {
                     "user_id":user_id,
                     "special_title":special_title,
             }),
-            "None",
         );
 
         send_api_request_with_forget(&self.api_tx, send_api);
@@ -631,7 +611,6 @@ impl RuntimeBot {
                     "approve":approve,
                     "remark":remark,
             }),
-            "None",
         );
 
         send_api_request_with_forget(&self.api_tx, send_api);
@@ -666,7 +645,6 @@ impl RuntimeBot {
                     "approve":approve,
                     "reason":reason,
             }),
-            "None",
         );
 
         send_api_request_with_forget(&self.api_tx, send_api);
@@ -676,7 +654,7 @@ impl RuntimeBot {
     ///
     /// 用于清理积攒了太多的**OneBot服务端**缓存文件。**并非是对于本框架清除**。
     pub fn clean_cache(&self) {
-        let send_api = SendApi::new("clean_cache", json!({}), "None");
+        let send_api = SendApi::new("clean_cache", json!({}));
         send_api_request_with_forget(&self.api_tx, send_api);
     }
 }
@@ -696,7 +674,6 @@ impl RuntimeBot {
             json!({
                 "message_id":message_id
             }),
-            &rand_echo(),
         );
 
         send_api_request_with_response(&self.api_tx, send_api)
@@ -714,7 +691,6 @@ impl RuntimeBot {
             json!({
                 "id":id
             }),
-            &rand_echo(),
         );
 
         send_api_request_with_response(&self.api_tx, send_api)
@@ -723,7 +699,7 @@ impl RuntimeBot {
     pub fn get_login_info(
         &self,
     ) -> impl std::future::Future<Output = Result<ApiReturn, ApiReturn>> {
-        let send_api = SendApi::new("get_login_info", json!({}), &rand_echo());
+        let send_api = SendApi::new("get_login_info", json!({}));
 
         send_api_request_with_response(&self.api_tx, send_api)
     }
@@ -744,7 +720,6 @@ impl RuntimeBot {
                     "user_id":user_id,
                     "no_cache":no_cache
             }),
-            &rand_echo(),
         );
 
         send_api_request_with_response(&self.api_tx, send_api)
@@ -753,7 +728,7 @@ impl RuntimeBot {
     pub fn get_friend_list(
         &self,
     ) -> impl std::future::Future<Output = Result<ApiReturn, ApiReturn>> {
-        let send_api = SendApi::new("get_friend_list", json!({}), &rand_echo());
+        let send_api = SendApi::new("get_friend_list", json!({}));
 
         send_api_request_with_response(&self.api_tx, send_api)
     }
@@ -774,7 +749,6 @@ impl RuntimeBot {
                     "group_id":group_id,
                     "no_cache":no_cache
             }),
-            &rand_echo(),
         );
 
         send_api_request_with_response(&self.api_tx, send_api)
@@ -783,7 +757,7 @@ impl RuntimeBot {
     pub fn get_group_list(
         &self,
     ) -> impl std::future::Future<Output = Result<ApiReturn, ApiReturn>> {
-        let send_api = SendApi::new("get_group_list", json!({}), &rand_echo());
+        let send_api = SendApi::new("get_group_list", json!({}));
 
         send_api_request_with_response(&self.api_tx, send_api)
     }
@@ -808,7 +782,6 @@ impl RuntimeBot {
                     "user_id":user_id,
                     "no_cache":no_cache
             }),
-            &rand_echo(),
         );
 
         send_api_request_with_response(&self.api_tx, send_api)
@@ -827,7 +800,6 @@ impl RuntimeBot {
             json!({
                 "group_id":group_id,
             }),
-            &rand_echo(),
         );
 
         send_api_request_with_response(&self.api_tx, send_api)
@@ -859,7 +831,6 @@ impl RuntimeBot {
                 "group_id":group_id,
                     "type":honor_type
             }),
-            &rand_echo(),
         );
 
         send_api_request_with_response(&self.api_tx, send_api)
@@ -879,7 +850,6 @@ impl RuntimeBot {
             json!({
                 "domain":domain,
             }),
-            &rand_echo(),
         );
 
         send_api_request_with_response(&self.api_tx, send_api)
@@ -887,7 +857,7 @@ impl RuntimeBot {
 
     /// 获取运行状态
     pub fn get_status(&self) -> impl std::future::Future<Output = Result<ApiReturn, ApiReturn>> {
-        let send_api = SendApi::new("get_status", json!({}), &rand_echo());
+        let send_api = SendApi::new("get_status", json!({}));
 
         send_api_request_with_response(&self.api_tx, send_api)
     }
@@ -895,7 +865,7 @@ impl RuntimeBot {
     pub fn get_version_info(
         &self,
     ) -> impl std::future::Future<Output = Result<ApiReturn, ApiReturn>> {
-        let send_api = SendApi::new("get_version_info", json!({}), &rand_echo());
+        let send_api = SendApi::new("get_version_info", json!({}));
         send_api_request_with_response(&self.api_tx, send_api)
     }
     /// 获取 Cookies
@@ -912,7 +882,6 @@ impl RuntimeBot {
             json!({
                 "domain":domain,
             }),
-            &rand_echo(),
         );
         send_api_request_with_response(&self.api_tx, send_api)
     }
@@ -920,7 +889,7 @@ impl RuntimeBot {
     pub fn get_csrf_token(
         &self,
     ) -> impl std::future::Future<Output = Result<ApiReturn, ApiReturn>> {
-        let send_api = SendApi::new("get_csrf_token", json!({}), &rand_echo());
+        let send_api = SendApi::new("get_csrf_token", json!({}));
 
         send_api_request_with_response(&self.api_tx, send_api)
     }
@@ -942,7 +911,6 @@ impl RuntimeBot {
                 "file":file,
                     "out_format":out_format
             }),
-            &rand_echo(),
         );
         send_api_request_with_response(&self.api_tx, send_api)
     }
@@ -960,7 +928,6 @@ impl RuntimeBot {
             json!({
                 "file":file,
             }),
-            &rand_echo(),
         );
         send_api_request_with_response(&self.api_tx, send_api)
     }
@@ -982,42 +949,14 @@ impl RuntimeBot {
                                 "user_id":user_id,
                     "times":times,
             }),
-            &rand_echo(),
         );
 
         send_api_request_with_response(&self.api_tx, send_api)
     }
 }
 
-impl RuntimeBot {
-    /// 发送拓展 Api, 此方法不关注返回值，返回值将丢弃。
-    ///
-    /// 如需要返回值，请使用 `send_api_return()`
-    ///
-    /// # Arguments
-    ///
-    /// `action`: 拓展 Api 的方法名
-    ///
-    /// `params`: 参数
-    pub fn send_api(&self, action: &str, params: Value) {
-        let send_api = SendApi::new(action, params, "None");
-        send_api_request_with_forget(&self.api_tx, send_api)
-    }
-    /// 发送拓展 Api, 此方法关注返回值。
-    ///
-    /// 如不需要返回值，推荐使用 `send_api()`
-    ///
-    /// # Arguments
-    ///
-    /// `action`: 拓展 Api 的方法名
-    ///
-    /// `params`: 参数
-    pub fn send_api_return(
-        &self,
-        action: &str,
-        params: Value,
-    ) -> impl std::future::Future<Output = Result<ApiReturn, ApiReturn>> {
-        let send_api = SendApi::new(action, params, &rand_echo());
-        send_api_request_with_response(&self.api_tx, send_api)
+impl CanSendApi for RuntimeBot {
+    fn __get_api_tx(&self) -> &tokio::sync::mpsc::Sender<crate::types::ApiAndOneshot> {
+        &self.api_tx
     }
 }

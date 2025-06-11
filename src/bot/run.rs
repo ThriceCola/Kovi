@@ -1,8 +1,5 @@
-use super::{
-    Bot,
-    handler::{InternalEvent, KoviEvent},
-};
-use crate::{PluginBuilder, types::ApiAndOneshot};
+use super::{Bot, handler::KoviEvent};
+use crate::{PluginBuilder, bot::handler::InternalInternalEvent, types::ApiAndOneshot};
 use log::error;
 use parking_lot::RwLock;
 use std::{
@@ -51,8 +48,8 @@ impl Bot {
 
             //处理连接，从msg_tx返回消息
             let (event_tx, mut event_rx): (
-                mpsc::Sender<InternalEvent>,
-                mpsc::Receiver<InternalEvent>,
+                mpsc::Sender<InternalInternalEvent>,
+                mpsc::Receiver<InternalInternalEvent>,
             ) = mpsc::channel(32);
 
             // 接收插件的api
@@ -98,7 +95,7 @@ impl Bot {
                 let bot = bot.clone();
 
                 // Drop为关闭事件，所以要等待，其他的不等待
-                if let InternalEvent::KoviEvent(KoviEvent::Drop) = event {
+                if let InternalInternalEvent::KoviEvent(KoviEvent::Drop) = event {
                     drop_task = Some(RT.spawn(Self::handler_event(bot, event, api_tx)));
                     break;
                 } else {
@@ -227,10 +224,10 @@ impl ExitCheck {
     }
 }
 
-pub(crate) async fn exit_signal_check(tx: Sender<InternalEvent>) {
+pub(crate) async fn exit_signal_check(tx: Sender<InternalInternalEvent>) {
     DROP_CHECK.await_exit_signal_change().await;
 
-    tx.send(InternalEvent::KoviEvent(KoviEvent::Drop))
+    tx.send(InternalInternalEvent::KoviEvent(KoviEvent::Drop))
         .await
         .expect("The exit signal send failed");
 }

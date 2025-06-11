@@ -7,32 +7,42 @@ use crate::{
         *,
     },
     plugin::PLUGIN_NAME,
-    types::ApiAndOneshot,
+    types::{ApiAndOneshot, ApiAndRuturn},
 };
 use log::info;
 use parking_lot::RwLock;
 use plugin_builder::event::MsgEvent;
-use std::{rc::Rc, sync::Arc};
+use std::sync::Arc;
 
 /// Kovi内部事件
-pub enum InternalEvent {
+pub(crate) enum InternalInternalEvent {
     KoviEvent(KoviEvent),
-    OneBotEvent(String),
+    OneBotEvent(InternalEvent),
 }
 
-pub enum KoviEvent {
+/// 事件
+pub enum InternalEvent {
+    /// 来自OneBot的事件
+    OneBotEvent(String),
+    /// 来自Kovi发送给服务端并包含了返回结果
+    OneBotApiEvent(ApiAndRuturn),
+}
+
+pub(crate) enum KoviEvent {
     Drop,
 }
 
 impl Bot {
     pub(crate) async fn handler_event(
         bot: Arc<RwLock<Self>>,
-        event: InternalEvent,
+        event: InternalInternalEvent,
         api_tx: mpsc::Sender<ApiAndOneshot>,
     ) {
         match event {
-            InternalEvent::KoviEvent(event) => Self::handle_kovi_event(bot, event).await,
-            InternalEvent::OneBotEvent(msg) => Self::handler_msg(bot, msg, api_tx).await,
+            InternalInternalEvent::KoviEvent(event) => Self::handle_kovi_event(bot, event).await,
+            InternalInternalEvent::OneBotEvent(msg) => {
+                Self::handler_internal_event(bot, msg, api_tx).await
+            }
         }
     }
 
@@ -58,7 +68,11 @@ impl Bot {
         }
     }
 
-    async fn handler_msg(bot: Arc<RwLock<Self>>, msg: String, api_tx: mpsc::Sender<ApiAndOneshot>) {
+    async fn handler_internal_event(
+        bot: Arc<RwLock<Self>>,
+        msg: InternalEvent,
+        api_tx: mpsc::Sender<ApiAndOneshot>,
+    ) {
         // debug!("{msg_json}");
 
         let bot_read = bot.read();
@@ -102,7 +116,6 @@ impl Bot {
             None => None,
         };
 
-        let msg: Rc<str> = Rc::from(msg);
         for (name, plugin) in bot_read.plugins.iter() {
             if let Some(event) = &msg_sevent_opt {
                 // 判断是否黑白名单
@@ -113,7 +126,6 @@ impl Bot {
             }
 
             let name_ = Arc::new(name.clone());
-            let msg = msg.clone();
 
             for listen in &plugin.listen.list {
                 let name = name_.clone();

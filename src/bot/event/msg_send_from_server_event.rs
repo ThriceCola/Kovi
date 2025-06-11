@@ -3,7 +3,7 @@ use crate::MsgEvent;
 use crate::bot::BotInformation;
 use crate::bot::handler::InternalEvent;
 use crate::bot::plugin_builder::event::{Event, PostType};
-use crate::bot::runtimebot::send_api_request_with_forget;
+use crate::bot::runtimebot::{CanSendApi, send_api_request_with_forget};
 use crate::types::ApiAndOneshot;
 use crate::{Message, bot::SendApi};
 use log::info;
@@ -13,10 +13,10 @@ use serde_json::{self, Value, json};
 use tokio::sync::mpsc;
 
 #[cfg(feature = "cqstring")]
-use crate::bot::message::CQMessage;
+use crate::bot::message::{CQMessage, cq_to_arr};
 
 #[derive(Debug, Clone)]
-pub struct PrivateMsgEvent {
+pub struct MsgSendFromServerEvent {
     /// 事件发生的时间戳
     pub time: i64,
     /// 收到事件的机器人 登陆号
@@ -31,6 +31,8 @@ pub struct PrivateMsgEvent {
     pub message: Message,
     /// 消息 ID
     pub message_id: i32,
+    /// 群号
+    pub group_id: Option<i64>,
     /// 发送者号
     pub user_id: i64,
     /// 匿名信息，如果不是匿名消息则为 null
@@ -53,7 +55,7 @@ pub struct PrivateMsgEvent {
     pub api_tx: mpsc::Sender<ApiAndOneshot>,
 }
 
-impl Event for PrivateMsgEvent {
+impl Event for MsgSendFromServerEvent {
     fn de(
         event: &InternalEvent,
         _: &BotInformation,
@@ -62,22 +64,29 @@ impl Event for PrivateMsgEvent {
         let InternalEvent::OneBotEvent(json_str) = event else {
             return None;
         };
+        if !json_str.contains("message_sent") {
+            return None;
+        }
 
-        let json: Value = serde_json::from_str(json_str).ok()?;
+        let json = serde_json::from_str(json_str).ok()?;
         let event = Self::new(api_tx.clone(), json).ok()?;
 
-        Some(event)
+        if event.post_type == PostType::MessageSent {
+            Some(event)
+        } else {
+            None
+        }
     }
 }
 
-impl PrivateMsgEvent {
+impl MsgSendFromServerEvent {
     fn new(
         api_tx: mpsc::Sender<ApiAndOneshot>,
         json: Value,
-    ) -> Result<PrivateMsgEvent, EventBuildError> {
+    ) -> Result<MsgSendFromServerEvent, EventBuildError> {
         let msg_event = MsgEvent::new(api_tx, json)?;
 
-        Ok(PrivateMsgEvent {
+        Ok(MsgSendFromServerEvent {
             time: msg_event.time,
             self_id: msg_event.self_id,
             post_type: msg_event.post_type,
@@ -85,6 +94,7 @@ impl PrivateMsgEvent {
             sub_type: msg_event.sub_type,
             message: msg_event.message,
             message_id: msg_event.message_id,
+            group_id: msg_event.group_id,
             user_id: msg_event.user_id,
             anonymous: msg_event.anonymous,
             raw_message: msg_event.raw_message,
@@ -98,7 +108,7 @@ impl PrivateMsgEvent {
     }
 }
 
-impl PrivateMsgEvent {
+impl MsgSendFromServerEvent {
     /// 直接从原始的 Json Value 获取某值
     ///
     /// # example
@@ -117,7 +127,7 @@ impl PrivateMsgEvent {
     }
 }
 
-impl<I> std::ops::Index<I> for PrivateMsgEvent
+impl<I> std::ops::Index<I> for MsgSendFromServerEvent
 where
     I: Index,
 {
@@ -128,20 +138,32 @@ where
     }
 }
 
-impl PrivateMsgEvent {
+impl MsgSendFromServerEvent {
     fn reply_builder<T>(&self, msg: T, auto_escape: bool) -> SendApi
     where
         T: Serialize,
     {
-        SendApi::new(
-            "send_msg",
-            json!({
-                "message_type":"private",
-            "user_id":self.user_id,
-            "message":msg,
-            "auto_escape":auto_escape,
-            }),
-        )
+        if self.is_private() {
+            SendApi::new(
+                "send_msg",
+                json!({
+                    "message_type":"private",
+                "user_id":self.user_id,
+                "message":msg,
+                "auto_escape":auto_escape,
+                }),
+            )
+        } else {
+            SendApi::new(
+                "send_msg",
+                json!({
+                    "message_type":"group",
+                    "group_id":self.group_id.expect("unreachable"),
+                    "message":msg,
+                    "auto_escape":auto_escape,
+                }),
+            )
+        }
     }
 
     #[cfg(not(feature = "cqstring"))]
@@ -153,11 +175,16 @@ impl PrivateMsgEvent {
     {
         let msg = Message::from(msg);
         let send_msg = self.reply_builder(&msg, false);
-        let nickname = self.get_sender_nickname();
+        let mut nickname = self.get_sender_nickname();
+        nickname.insert(0, ' ');
         let id = &self.sender.user_id;
         let message_type = &self.message_type;
+        let group_id = match &self.group_id {
+            Some(v) => format!(" {v}"),
+            None => "".to_string(),
+        };
         let human_msg = msg.to_human_string();
-        info!("[reply] [to {message_type} {nickname} {id}]: {human_msg}");
+        info!("[reply] [to {message_type}{group_id}{nickname} {id}]: {human_msg}");
 
         send_api_request_with_forget(&self.api_tx, send_msg)
     }
@@ -171,11 +198,16 @@ impl PrivateMsgEvent {
     {
         let msg = CQMessage::from(msg);
         let send_msg = self.reply_builder(&msg, false);
-        let nickname = self.get_sender_nickname();
+        let mut nickname = self.get_sender_nickname();
+        nickname.insert(0, ' ');
         let id = &self.sender.user_id;
         let message_type = &self.message_type;
+        let group_id = match &self.group_id {
+            Some(v) => format!(" {v}"),
+            None => "".to_string(),
+        };
         let human_msg = Message::from(msg).to_human_string();
-        info!("[reply] [to {message_type} {nickname} {id}]: {human_msg}");
+        info!("[reply] [to {message_type}{group_id}{nickname} {id}]: {human_msg}");
         send_api_request_with_forget(&self.api_tx, send_msg);
     }
 
@@ -189,11 +221,16 @@ impl PrivateMsgEvent {
         let msg = Message::from(msg).add_reply(self.message_id);
         let send_msg = self.reply_builder(&msg, false);
 
-        let nickname = self.get_sender_nickname();
+        let mut nickname = self.get_sender_nickname();
+        nickname.insert(0, ' ');
         let id = &self.sender.user_id;
         let message_type = &self.message_type;
+        let group_id = match &self.group_id {
+            Some(v) => format!(" {v}"),
+            None => "".to_string(),
+        };
         let human_msg = msg.to_human_string();
-        info!("[reply] [to {message_type} {nickname} {id}]: {human_msg}");
+        info!("[reply] [to {message_type}{group_id}{nickname} {id}]: {human_msg}");
 
         send_api_request_with_forget(&self.api_tx, send_msg);
     }
@@ -208,11 +245,16 @@ impl PrivateMsgEvent {
         let msg = CQMessage::from(msg).add_reply(self.message_id);
         let send_msg = self.reply_builder(&msg, false);
 
-        let nickname = self.get_sender_nickname();
+        let mut nickname = self.get_sender_nickname();
+        nickname.insert(0, ' ');
         let id = &self.sender.user_id;
         let message_type = &self.message_type;
+        let group_id = match &self.group_id {
+            Some(v) => format!(" {v}"),
+            None => "".to_string(),
+        };
         let human_msg = Message::from(msg).to_human_string();
-        info!("[reply] [to {message_type} {nickname} {id}]: {human_msg}");
+        info!("[reply] [to {message_type}{group_id}{nickname} {id}]: {human_msg}");
         send_api_request_with_forget(&self.api_tx, send_msg);
     }
 
@@ -224,11 +266,16 @@ impl PrivateMsgEvent {
         T: Serialize,
     {
         let send_msg = self.reply_builder(&msg, true);
-        let nickname = self.get_sender_nickname();
+        let mut nickname = self.get_sender_nickname();
+        nickname.insert(0, ' ');
         let id = &self.sender.user_id;
         let message_type = &self.message_type;
+        let group_id = match &self.group_id {
+            Some(v) => format!(" {v}"),
+            None => "".to_string(),
+        };
         let msg = String::from(msg);
-        info!("[reply] [to {message_type} {nickname} {id}]: {msg}");
+        info!("[reply] [to {message_type}{group_id} {nickname} {id}]: {msg}");
         send_api_request_with_forget(&self.api_tx, send_msg);
     }
 
@@ -252,5 +299,19 @@ impl PrivateMsgEvent {
     /// 借用 event 的 text，只是做了一下self.text.as_deref()的包装
     pub fn borrow_text(&self) -> Option<&str> {
         self.text.as_deref()
+    }
+
+    pub fn is_group(&self) -> bool {
+        self.group_id.is_some()
+    }
+
+    pub fn is_private(&self) -> bool {
+        self.group_id.is_none()
+    }
+}
+
+impl CanSendApi for MsgSendFromServerEvent {
+    fn __get_api_tx(&self) -> &tokio::sync::mpsc::Sender<crate::types::ApiAndOneshot> {
+        &self.api_tx
     }
 }

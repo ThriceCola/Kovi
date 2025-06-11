@@ -3,7 +3,7 @@ use crate::types::{ApiAndOneshot, ApiOneshotReceiver, ApiOneshotSender};
 use super::{ApiReturn, Bot, Host, SendApi};
 use log::error;
 use parking_lot::RwLock;
-use rand::Rng;
+use serde_json::Value;
 use std::sync::Weak;
 use tokio::sync::{mpsc, oneshot};
 
@@ -28,16 +28,6 @@ pub struct RuntimeBot {
     pub(crate) bot: Weak<RwLock<Bot>>,
     pub(crate) plugin_name: String,
     pub api_tx: mpsc::Sender<ApiAndOneshot>,
-}
-
-pub fn rand_echo() -> String {
-    let mut rng = rand::thread_rng();
-    let mut s = String::new();
-    s.push_str(&chrono::Utc::now().timestamp().to_string());
-    for _ in 0..10 {
-        s.push(rng.gen_range('a'..='z'));
-    }
-    s
 }
 
 /// 提供给拓展API插件开发者的异步 API 请求发送函数，返回一个 Future ，用于等待在 Kovi 中已经缓存好的API响应。
@@ -108,5 +98,41 @@ pub async fn send_api_await_response(api_rx: ApiOneshotReceiver) -> Result<ApiRe
             error!("{e}");
             panic!()
         }
+    }
+}
+
+/// 实现这个 trait, 让用户方便地发送 API 的方法。
+pub trait CanSendApi {
+    fn __get_api_tx(&self) -> &mpsc::Sender<ApiAndOneshot>;
+
+    /// 发送拓展 Api, 此方法不关注返回值，返回值将丢弃。
+    ///
+    /// 如需要返回值，请使用 `send_api_return()`
+    ///
+    /// # Arguments
+    ///
+    /// `action`: 拓展 Api 的方法名
+    ///
+    /// `params`: 参数
+    fn send_api(&self, action: &str, params: Value) {
+        let send_api = SendApi::new(action, params);
+        send_api_request_with_forget(&self.__get_api_tx(), send_api)
+    }
+    /// 发送拓展 Api, 此方法关注返回值。
+    ///
+    /// 如不需要返回值，推荐使用 `send_api()`
+    ///
+    /// # Arguments
+    ///
+    /// `action`: 拓展 Api 的方法名
+    ///
+    /// `params`: 参数
+    fn send_api_return(
+        &self,
+        action: &str,
+        params: Value,
+    ) -> impl std::future::Future<Output = Result<ApiReturn, ApiReturn>> {
+        let send_api = SendApi::new(action, params);
+        send_api_request_with_response(&self.__get_api_tx(), send_api)
     }
 }

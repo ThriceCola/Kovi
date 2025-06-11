@@ -1,8 +1,7 @@
-use crate::types::ApiAndOneshot;
-
 use super::Server;
 use super::{ApiReturn, Bot, Host, handler::InternalEvent};
-use ahash::{HashMapExt as _, RandomState};
+use crate::bot::handler::InternalInternalEvent;
+use crate::types::ApiAndOneshot;
 use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
 use http::HeaderValue;
@@ -10,7 +9,7 @@ use log::{debug, error, warn};
 use parking_lot::{Mutex, RwLock};
 use std::error::Error;
 use std::fmt::Display;
-use std::{collections::HashMap, net::IpAddr, sync::Arc};
+use std::{net::IpAddr, sync::Arc};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::{mpsc, oneshot};
@@ -18,15 +17,13 @@ use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tokio_tungstenite::{connect_async, tungstenite::client::IntoClientRequest};
 
-type ApiTxMap = Arc<
-    Mutex<HashMap<String, tokio::sync::oneshot::Sender<Result<ApiReturn, ApiReturn>>, RandomState>>,
->;
+type ApiTxMap = Arc<Mutex<ahash::HashMap<String, ApiAndOneshot>>>;
 
 impl Bot {
     pub(crate) async fn ws_connect(
         server: Server,
         api_rx: mpsc::Receiver<ApiAndOneshot>,
-        event_tx: mpsc::Sender<InternalEvent>,
+        event_tx: mpsc::Sender<InternalInternalEvent>,
         bot: Arc<RwLock<Bot>>,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         #[allow(clippy::type_complexity)]
@@ -68,7 +65,7 @@ impl Bot {
 
     pub(crate) async fn ws_event_connect(
         server: Server,
-        event_tx: mpsc::Sender<InternalEvent>,
+        event_tx: mpsc::Sender<InternalInternalEvent>,
         connected_tx: oneshot::Sender<Result<(), Box<dyn Error + Send + Sync>>>,
         bot: Arc<RwLock<Bot>>,
     ) {
@@ -121,7 +118,7 @@ impl Bot {
     pub(crate) async fn ws_send_api(
         server: Server,
         api_rx: mpsc::Receiver<ApiAndOneshot>,
-        event_tx: mpsc::Sender<InternalEvent>,
+        event_tx: mpsc::Sender<InternalInternalEvent>,
         connected_tx: oneshot::Sender<Result<(), Box<dyn std::error::Error + Send + Sync>>>,
         bot: Arc<RwLock<Bot>>,
     ) {
@@ -166,7 +163,7 @@ impl Bot {
             .expect("The OneBot connect channel has been established");
 
         let (write, read) = ws_stream.split();
-        let api_tx_map: ApiTxMap = Arc::new(Mutex::new(HashMap::<_, _, RandomState>::new()));
+        let api_tx_map: ApiTxMap = Arc::new(Mutex::new(ahash::HashMap::<_, _>::default()));
 
         let mut bot_write = bot.write();
 
@@ -189,7 +186,7 @@ impl Bot {
 
 async fn ws_event_connect_read(
     read: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
-    event_tx: Sender<InternalEvent>,
+    event_tx: Sender<InternalInternalEvent>,
 ) {
     read.for_each(|msg| {
         let event_tx = event_tx.clone();
@@ -204,7 +201,7 @@ async fn ws_event_connect_read(
 
     async fn handle_msg(
         msg: tokio_tungstenite::tungstenite::Message,
-        event_tx: Sender<InternalEvent>,
+        event_tx: Sender<InternalInternalEvent>,
     ) {
         if !msg.is_text() {
             return;
@@ -212,7 +209,9 @@ async fn ws_event_connect_read(
 
         let text = msg.to_text().expect("unreachable");
         if let Err(e) = event_tx
-            .send(InternalEvent::OneBotEvent(text.to_string()))
+            .send(InternalInternalEvent::OneBotEvent(
+                InternalEvent::OneBotEvent(text.to_string()),
+            ))
             .await
         {
             debug!("通道关闭：{e}")
@@ -222,7 +221,7 @@ async fn ws_event_connect_read(
 
 async fn ws_send_api_read(
     read: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
-    event_tx: Sender<InternalEvent>,
+    event_tx: Sender<InternalInternalEvent>,
     api_tx_map: ApiTxMap,
 ) {
     read.for_each(|msg| {
@@ -238,7 +237,7 @@ async fn ws_send_api_read(
 
     async fn handle_msg(
         msg: tokio_tungstenite::tungstenite::Message,
-        event_tx: Sender<InternalEvent>,
+        event_tx: Sender<InternalInternalEvent>,
         api_tx_map: ApiTxMap,
     ) {
         if msg.is_close() {
@@ -256,7 +255,7 @@ async fn ws_send_api_read(
         let return_value: ApiReturn = match serde_json::from_str(text) {
             Ok(v) => v,
             Err(_) => {
-                warn!("Unknow api return： {text}");
+                debug!("Unknow api return： {text}");
                 return;
             }
         };
@@ -265,45 +264,51 @@ async fn ws_send_api_read(
             warn!("Api return error: {text}")
         }
 
-        if return_value.echo == "None" {
-            return;
-        }
+        let api_tx_cache = {
+            let mut api_tx_map = api_tx_map.lock();
+            match api_tx_map.remove(&return_value.echo) {
+                Some(v) => v,
+                None => {
+                    log::error!("Api return echo not found from api_tx_map: {text}");
+                    return;
+                }
+            }
+        };
 
-        let mut api_tx_map = api_tx_map.lock();
-
-        let api_tx = api_tx_map.remove(&return_value.echo).expect("unreachable");
-        let r = if return_value.status.to_lowercase() == "ok" {
-            api_tx.send(Ok(return_value))
+        let return_value = if return_value.status.to_lowercase() == "ok" {
+            Ok(return_value)
         } else {
-            api_tx.send(Err(return_value))
+            Err(return_value)
         };
 
-        if r.is_err() {
-            log::debug!("Return Api to plugin failed, the receiver has been closed")
+        if let Some(tx) = api_tx_cache.1 {
+            if tx.send(return_value.clone()).is_err() {
+                log::debug!("Return Api to plugin failed, the receiver has been closed")
+            }
         };
+
+        event_tx
+            .send(InternalInternalEvent::OneBotEvent(
+                InternalEvent::OneBotApiEvent((api_tx_cache.0, return_value)),
+            ))
+            .await
+            .expect("The event_tx is closed");
     }
 }
 
 async fn ws_send_api_write(
     mut write: SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
     mut api_rx: mpsc::Receiver<ApiAndOneshot>,
-    event_tx: Sender<InternalEvent>,
+    event_tx: Sender<InternalInternalEvent>,
     api_tx_map: ApiTxMap,
 ) {
     while let Some((api_msg, return_api_tx)) = api_rx.recv().await {
         let event_tx = event_tx.clone();
         debug!("{}", api_msg);
 
-        if &api_msg.echo != "None" {
-            match return_api_tx {
-                None => {
-                    warn!("The api_msg.echo is not \"None\", but the return_api_tx is None");
-                }
-                Some(v) => {
-                    api_tx_map.lock().insert(api_msg.echo.clone(), v);
-                }
-            };
-        }
+        api_tx_map
+            .lock()
+            .insert(api_msg.echo.clone(), (api_msg.clone(), return_api_tx));
 
         let msg = tokio_tungstenite::tungstenite::Message::text(api_msg.to_string());
 
@@ -313,13 +318,13 @@ async fn ws_send_api_write(
     }
 }
 
-async fn connection_failed_eprintln<E>(e: E, event_tx: Sender<InternalEvent>)
+async fn connection_failed_eprintln<E>(e: E, event_tx: Sender<InternalInternalEvent>)
 where
     E: Display,
 {
     log::error!("{e}\nBot connection failed, please check the configuration and restart.");
     if let Err(e) = event_tx
-        .send(InternalEvent::KoviEvent(
+        .send(InternalInternalEvent::KoviEvent(
             crate::bot::handler::KoviEvent::Drop,
         ))
         .await

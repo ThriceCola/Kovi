@@ -1,8 +1,9 @@
 use super::{Anonymous, EventBuildError, Sender};
 use crate::bot::BotInformation;
+use crate::bot::handler::InternalEvent;
 use crate::bot::message::cq_to_arr_inner;
 use crate::bot::plugin_builder::event::{Event, PostType};
-use crate::bot::runtimebot::send_api_request_with_forget;
+use crate::bot::runtimebot::{CanSendApi, send_api_request_with_forget};
 use crate::types::ApiAndOneshot;
 use crate::{
     Message,
@@ -62,10 +63,13 @@ pub struct MsgEvent {
 
 impl Event for MsgEvent {
     fn de(
-        json_str: &str,
+        event: &InternalEvent,
         _: &BotInformation,
         api_tx: &mpsc::Sender<ApiAndOneshot>,
     ) -> Option<Self> {
+        let InternalEvent::OneBotEvent(json_str) = event else {
+            return None;
+        };
         let json = serde_json::from_str(json_str).ok()?;
         Self::new(api_tx.clone(), json).ok()
     }
@@ -335,7 +339,6 @@ impl MsgEvent {
                 "message":msg,
                 "auto_escape":auto_escape,
                 }),
-                "None",
             )
         } else {
             SendApi::new(
@@ -346,7 +349,6 @@ impl MsgEvent {
                     "message":msg,
                     "auto_escape":auto_escape,
                 }),
-                "None",
             )
         }
     }
@@ -492,5 +494,11 @@ impl MsgEvent {
 
     pub fn is_private(&self) -> bool {
         self.group_id.is_none()
+    }
+}
+
+impl CanSendApi for MsgEvent {
+    fn __get_api_tx(&self) -> &tokio::sync::mpsc::Sender<crate::types::ApiAndOneshot> {
+        &self.api_tx
     }
 }
