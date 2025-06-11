@@ -56,7 +56,8 @@ pub struct MsgEvent {
     /// 原始的onebot消息，已处理成json格式
     pub original_json: Value,
 
-    api_tx: mpsc::Sender<ApiAndOneshot>,
+    /// 不推荐的消息发送方式
+    pub api_tx: mpsc::Sender<ApiAndOneshot>,
 }
 
 impl Event for MsgEvent {

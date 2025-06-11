@@ -3,13 +3,19 @@ use serde::{Deserialize, Serialize};
 use std::any::Any;
 use thiserror::Error;
 
+pub use admin_msg_event::AdminMsgEvent;
+pub use group_msg_event::GroupMsgEvent;
 pub use msg_event::MsgEvent;
 pub use notice_event::NoticeEvent;
+pub use private_msg_event::PrivateMsgEvent;
 pub use request_event::RequestEvent;
 
+pub mod admin_msg_event;
+pub mod group_msg_event;
 pub mod lifecycle_event;
 pub mod msg_event;
 pub mod notice_event;
+pub mod private_msg_event;
 pub mod request_event;
 
 #[deprecated(since = "0.11.0", note = "请使用 `MsgEvent` 代替")]
@@ -87,7 +93,7 @@ pub trait Event: Any + Send + Sync {
     /// ```
     fn de(
         json_str: &str,
-        bot: &BotInformation,
+        bot_info: &BotInformation,
         api_tx: &tokio::sync::mpsc::Sender<ApiAndOneshot>,
     ) -> Option<Self>
     where

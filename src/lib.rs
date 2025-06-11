@@ -18,6 +18,7 @@ pub mod utils;
 
 pub use bot::ApiReturn;
 pub use bot::Bot;
+pub use bot::event;
 pub use bot::message::Message;
 pub use bot::plugin_builder::PluginBuilder;
 pub use bot::plugin_builder::event::MsgEvent;

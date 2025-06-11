@@ -3,6 +3,7 @@ use super::{Bot, runtimebot::RuntimeBot};
 use crate::RT;
 use crate::bot::BotInformation;
 use crate::bot::plugin_builder::event::Event;
+use crate::event::{AdminMsgEvent, GroupMsgEvent, PrivateMsgEvent};
 use crate::plugin::{PLUGIN_BUILDER, PLUGIN_NAME};
 use crate::types::{ApiAndOneshot, NoArgsFn, PinFut};
 use croner::Cron;
@@ -172,11 +173,11 @@ impl PluginBuilder {
     /// 注册一个处理程序，用于处理接收到的消息事件（`MsgEvent`）。
     pub fn on_admin_msg<F, Fut>(handler: F)
     where
-        F: Fn(Arc<MsgEvent>) -> Fut + Send + Sync + 'static,
+        F: Fn(Arc<AdminMsgEvent>) -> Fut + Send + Sync + 'static,
         Fut: Future + Send,
         Fut::Output: Send,
     {
-        PluginBuilder::on::<MsgEvent, _>(handler)
+        PluginBuilder::on::<AdminMsgEvent, _>(handler)
     }
 
     /// 注册管理员消息处理函数。
@@ -184,20 +185,20 @@ impl PluginBuilder {
     /// 注册一个处理程序，用于处理接收到的消息事件（`MsgEvent`）。
     pub fn on_private_msg<F, Fut>(handler: F)
     where
-        F: Fn(Arc<MsgEvent>) -> Fut + Send + Sync + 'static,
+        F: Fn(Arc<PrivateMsgEvent>) -> Fut + Send + Sync + 'static,
         Fut: Future + Send,
         Fut::Output: Send,
     {
-        PluginBuilder::on::<MsgEvent, _>(handler)
+        PluginBuilder::on::<PrivateMsgEvent, _>(handler)
     }
 
     pub fn on_group_msg<F, Fut>(handler: F)
     where
-        F: Fn(Arc<MsgEvent>) -> Fut + Send + Sync + 'static,
+        F: Fn(Arc<GroupMsgEvent>) -> Fut + Send + Sync + 'static,
         Fut: Future + Send,
         Fut::Output: Send,
     {
-        PluginBuilder::on::<MsgEvent, _>(handler)
+        PluginBuilder::on::<GroupMsgEvent, _>(handler)
     }
 
     #[cfg(feature = "message_sent")]
