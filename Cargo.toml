@@ -1,6 +1,6 @@
 [package]
 name = "kovi"
-version = "2025.1.0"
+version = "2025.6.0"
 edition = "2021"
 description = "A OneBot V11 bot plugin framework"
 license = "MPL-2.0"
@@ -45,11 +45,6 @@ save_bot_admin = []
 save_plugin_status = []
 plugin-access-control = []
 
-<<<<<<< HEAD
-message_sent = []
-
-=======
->>>>>>> main
 cqstring = []
 
 native-tls-vendored = ["tokio-tungstenite/native-tls-vendored"]

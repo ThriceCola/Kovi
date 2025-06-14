@@ -1,4 +1,4 @@
-#![feature(return_type_notation, async_fn_traits, unboxed_closures)]
+#![feature(async_fn_traits, unboxed_closures)]
 
 //! # Kovi
 //!
@@ -24,17 +24,17 @@ pub mod types;
 /// 提供一些方便的插件开发函数
 pub mod utils;
 
-pub use bot::ApiReturn;
-pub use bot::Bot;
 pub use bot::event;
 pub use bot::message::Message;
 pub use bot::runtimebot::RuntimeBot;
+pub use bot::ApiReturn;
+pub use bot::Bot;
 pub use error::MessageError;
 pub use kovi_macros::plugin;
-pub use plugin::plugin_builder::PluginBuilder;
 pub use plugin::plugin_builder::event::MsgEvent;
 pub use plugin::plugin_builder::event::NoticeEvent;
 pub use plugin::plugin_builder::event::RequestEvent;
+pub use plugin::plugin_builder::PluginBuilder;
 pub use task::spawn;
 
 #[deprecated(since = "0.11.0", note = "请使用 `MsgEvent` 代替")]

@@ -1,5 +1,5 @@
-use crate::{ApiReturn, bot::SendApi};
-use std::{pin::Pin, sync::Arc};
+use crate::{bot::SendApi, ApiReturn};
+use std::{future::Future, pin::Pin, sync::Arc};
 use tokio::sync::oneshot;
 
 pub(crate) type KoviAsyncFn = dyn Fn() -> Pin<Box<dyn Future<Output = ()> + Send>> + Send + Sync;

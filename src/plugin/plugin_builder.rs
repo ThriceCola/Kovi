@@ -1,20 +1,19 @@
-use crate::RT;
+use crate::bot::plugin_builder::event::Event;
 use crate::bot::BotInformation;
 use crate::bot::Host;
-use crate::bot::plugin_builder::event::Event;
-use crate::bot::{Bot, runtimebot::RuntimeBot};
+use crate::bot::{runtimebot::RuntimeBot, Bot};
 use crate::event::InternalEvent;
 use crate::event::MsgSendFromServerEvent;
 use crate::event::{AdminMsgEvent, GroupMsgEvent, PrivateMsgEvent};
 use crate::plugin::{PLUGIN_BUILDER, PLUGIN_NAME};
 use crate::types::{ApiAndOneshot, NoArgsFn, PinFut};
-use croner::Cron;
+use crate::RT;
 use croner::errors::CronError;
+use croner::Cron;
 use event::{MsgEvent, NoticeEvent, RequestEvent};
 use log::error;
 use parking_lot::RwLock;
 use std::any::Any;
-use std::future::Future;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
@@ -71,12 +70,11 @@ pub(crate) struct ListenInner {
 }
 
 impl Listen {
-    pub(crate) fn on<T, F, Fut>(&mut self, handler: F)
+    pub(crate) fn on<T, F>(&mut self, handler: F)
     where
         T: Event,
-        F: Fn(Arc<T>) -> Fut + Send + Sync + 'static,
-        Fut: Future + Send,
-        Fut::Output: Send,
+        F: AsyncFn(Arc<T>) + Send + Sync + 'static,
+        for<'a> <F as AsyncFnMut<(Arc<T>,)>>::CallRefFuture<'a>: std::marker::Send, // F(..): Send,
     {
         let handler = Arc::new(handler);
 
@@ -146,10 +144,10 @@ impl PluginBuilder {
 }
 
 impl PluginBuilder {
-    pub fn on<T: Event, Fut>(handler: impl Fn(Arc<T>) -> Fut + Send + Sync + 'static)
+    pub fn on<T: Event, F>(handler: F)
     where
-        Fut: Future + Send,
-        Fut::Output: Send,
+        F: AsyncFn(Arc<T>) + Send + Sync + 'static,
+        for<'a> <F as AsyncFnMut<(Arc<T>,)>>::CallRefFuture<'a>: std::marker::Send, // F(..): Send,
     {
         assert_right_place!(PLUGIN_BUILDER.try_with(|p| {
             let mut bot = p.bot.write();
@@ -160,41 +158,37 @@ impl PluginBuilder {
     }
 
     /// 注册事件处理函数。
-    pub fn on_msg<F, Fut>(handler: F)
+    pub fn on_msg<F>(handler: F)
     where
-        F: Fn(Arc<MsgEvent>) -> Fut + Send + Sync + 'static,
-        Fut: Future + Send,
-        Fut::Output: Send,
+        F: AsyncFn(Arc<MsgEvent>) + Send + Sync + 'static,
+        for<'a> <F as AsyncFnMut<(Arc<MsgEvent>,)>>::CallRefFuture<'a>: std::marker::Send, // F(..): Send,
     {
         PluginBuilder::on::<MsgEvent, _>(handler)
     }
 
     /// 注册事件处理函数。
-    pub fn on_admin_msg<F, Fut>(handler: F)
+    pub fn on_admin_msg<F>(handler: F)
     where
-        F: Fn(Arc<AdminMsgEvent>) -> Fut + Send + Sync + 'static,
-        Fut: Future + Send,
-        Fut::Output: Send,
+        F: AsyncFn(Arc<AdminMsgEvent>) + Send + Sync + 'static,
+        for<'a> <F as AsyncFnMut<(Arc<AdminMsgEvent>,)>>::CallRefFuture<'a>: std::marker::Send, // F(..): Send,
     {
         PluginBuilder::on::<AdminMsgEvent, _>(handler)
     }
 
     /// 注册事件处理函数。
-    pub fn on_private_msg<F, Fut>(handler: F)
+    pub fn on_private_msg<F>(handler: F)
     where
-        F: Fn(Arc<PrivateMsgEvent>) -> Fut + Send + Sync + 'static,
-        Fut: Future + Send,
-        Fut::Output: Send,
+        F: AsyncFn(Arc<PrivateMsgEvent>) + Send + Sync + 'static,
+        for<'a> <F as AsyncFnMut<(Arc<PrivateMsgEvent>,)>>::CallRefFuture<'a>: std::marker::Send, // F(..): Send,
     {
         PluginBuilder::on::<PrivateMsgEvent, _>(handler)
     }
 
     /// 注册事件处理函数。
-    pub fn on_group_msg<F, Fut>(handler: F)
+    pub fn on_group_msg<F>(handler: F)
     where
-        F: Fn(Arc<GroupMsgEvent>) -> Fut + Send + Sync + 'static,
-        Fut: Future + Send,
-        Fut::Output: Send,
+        F: AsyncFn(Arc<GroupMsgEvent>) + Send + Sync + 'static,
+        for<'a> <F as AsyncFnMut<(Arc<GroupMsgEvent>,)>>::CallRefFuture<'a>: std::marker::Send, // F(..): Send,
     {
         PluginBuilder::on::<GroupMsgEvent, _>(handler)
     }
@@ -203,53 +197,49 @@ impl PluginBuilder {
         note = "请使用 `PluginBuilder::on::(|event: Arc<MsgSendFromServerEvent>| fn())` 代替"
     )]
     /// 注册事件处理函数。
-    pub fn on_msg_send<F, Fut>(handler: F)
+    pub fn on_msg_send<F>(handler: F)
     where
-        F: Fn(Arc<MsgSendFromServerEvent>) -> Fut + Send + Sync + 'static,
-        Fut: Future + Send,
-        Fut::Output: Send,
+        F: AsyncFn(Arc<MsgSendFromServerEvent>) + Send + Sync + 'static,
+        for<'a> <F as AsyncFnMut<(Arc<MsgSendFromServerEvent>,)>>::CallRefFuture<'a>:
+            std::marker::Send, // F(..): Send,
     {
         PluginBuilder::on::<MsgSendFromServerEvent, _>(handler)
     }
 
     /// 注册事件处理函数。
-    pub fn on_notice<F, Fut>(handler: F)
+    pub fn on_notice<F>(handler: F)
     where
-        F: Fn(Arc<NoticeEvent>) -> Fut + Send + Sync + 'static,
-        Fut: Future + Send,
-        Fut::Output: Send,
+        F: AsyncFn(Arc<NoticeEvent>) + Send + Sync + 'static,
+        for<'a> <F as AsyncFnMut<(Arc<NoticeEvent>,)>>::CallRefFuture<'a>: std::marker::Send, // F(..): Send,
     {
         PluginBuilder::on::<NoticeEvent, _>(handler)
     }
 
     /// 注册事件处理函数。
-    pub fn on_request<F, Fut>(handler: F)
+    pub fn on_request<F>(handler: F)
     where
-        F: Fn(Arc<RequestEvent>) -> Fut + Send + Sync + 'static,
-        Fut: Future + Send,
-        Fut::Output: Send,
+        F: AsyncFn(Arc<RequestEvent>) + Send + Sync + 'static,
+        for<'a> <F as AsyncFnMut<(Arc<RequestEvent>,)>>::CallRefFuture<'a>: std::marker::Send, // F(..): Send,
     {
         PluginBuilder::on::<RequestEvent, _>(handler)
     }
 
     #[deprecated(note = "请使用 `on_notice` 代替")]
     /// 注册事件处理函数。
-    pub fn on_all_notice<F, Fut>(handler: F)
+    pub fn on_all_notice<F>(handler: F)
     where
-        F: Fn(Arc<NoticeEvent>) -> Fut + Send + Sync + 'static,
-        Fut: Future + Send,
-        Fut::Output: Send,
+        F: AsyncFn(Arc<NoticeEvent>) + Send + Sync + 'static,
+        for<'a> <F as AsyncFnMut<(Arc<NoticeEvent>,)>>::CallRefFuture<'a>: std::marker::Send, // F(..): Send,
     {
         Self::on_notice(handler)
     }
 
     #[deprecated(note = "请使用 `on_request` 代替")]
     /// 注册事件处理函数。
-    pub fn on_all_request<F, Fut>(handler: F)
+    pub fn on_all_request<F>(handler: F)
     where
-        F: Fn(Arc<RequestEvent>) -> Fut + Send + Sync + 'static,
-        Fut: Future + Send,
-        Fut::Output: Send,
+        F: AsyncFn(Arc<RequestEvent>) + Send + Sync + 'static,
+        for<'a> <F as AsyncFnMut<(Arc<RequestEvent>,)>>::CallRefFuture<'a>: std::marker::Send, // F(..): Send,
     {
         Self::on_request(handler)
     }
@@ -257,11 +247,10 @@ impl PluginBuilder {
     /// 注册程序结束事件处理函数。
     ///
     /// 注册处理程序，用于处理接收到的程序结束事件。
-    pub fn drop<F, Fut>(handler: F)
+    pub fn drop<F>(handler: F)
     where
-        F: Fn() -> Fut + Send + Sync + 'static,
-        Fut: Future + Send,
-        Fut::Output: Send,
+        F: AsyncFn() + Send + Sync + 'static,
+        for<'a> <F as AsyncFnMut<()>>::CallRefFuture<'a>: std::marker::Send, // F(..): Send,
     {
         assert_right_place!(PLUGIN_BUILDER.try_with(|p| {
             let mut bot = p.bot.write();
@@ -287,11 +276,10 @@ impl PluginBuilder {
     /// 注册定时任务。
     ///
     /// 传入 Cron 。
-    pub fn cron<F, Fut>(cron: &str, handler: F) -> Result<(), CronError>
+    pub fn cron<F>(cron: &str, handler: F) -> Result<(), CronError>
     where
-        F: Fn() -> Fut + Send + Sync + 'static,
-        Fut: Future + Send,
-        Fut::Output: Send,
+        F: AsyncFn() + Send + Sync + 'static,
+        for<'a> <F as AsyncFnMut<()>>::CallRefFuture<'a>: std::marker::Send, // F(..): Send,
     {
         assert_right_place!(PLUGIN_BUILDER.try_with(|p| {
             let cron = match Cron::new(cron).with_seconds_optional().parse() {
@@ -306,22 +294,20 @@ impl PluginBuilder {
     /// 注册定时任务。
     ///
     /// 传入 Cron 。
-    pub fn cron_use_croner<F, Fut>(cron: Cron, handler: F)
+    pub fn cron_use_croner<F>(cron: Cron, handler: F)
     where
-        F: Fn() -> Fut + Send + Sync + 'static,
-        Fut: Future + Send,
-        Fut::Output: Send,
+        F: AsyncFn() + Send + Sync + 'static,
+        for<'a> <F as AsyncFnMut<()>>::CallRefFuture<'a>: std::marker::Send, // F(..): Send,
     {
         assert_right_place!(PLUGIN_BUILDER.try_with(|p| {
             Self::run_cron_task(p, cron, handler);
         }));
     }
 
-    fn run_cron_task<F, Fut>(p: &PluginBuilder, cron: Cron, handler: F)
+    fn run_cron_task<F>(p: &PluginBuilder, cron: Cron, handler: F)
     where
-        F: Fn() -> Fut + Send + Sync + 'static,
-        Fut: Future + Send,
-        Fut::Output: Send,
+        F: AsyncFn() + Send + Sync + 'static,
+        for<'a> <F as AsyncFnMut<()>>::CallRefFuture<'a>: std::marker::Send, // F(..): Send,
     {
         let name = Arc::new(p.runtime_bot.plugin_name.clone());
         let mut enabled = {
