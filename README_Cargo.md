@@ -1,4 +1,4 @@
-**English** | [简体中文](https://threkork.github.io/kovi-doc/)
+**English** | [简体中文](https://thricecola.github.io/kovi-doc/)
 
 # Kovi
 
@@ -16,11 +16,11 @@ Kovi is a plugin framework for OneBot V11. If you want to develop OneBot V11 bot
 
 ### ↓ Documentation is here
 
-[Kovi Doc](https://threkork.github.io/kovi-doc/)
+[Kovi Doc](https://thricecola.github.io/kovi-doc/)
 
 ### ↓ The store is here
 
-[Kovi Shop](https://kovi.threkork.com/start/plugins.html)
+[Kovi Shop](https://kovi.thricecola.com/start/plugins.html)
 
 **Note ⚠️: Currently, the project only supports OneBot V11's forward WebSocket protocol.**
 
@@ -151,6 +151,6 @@ The `main()` function runs only once when plugin starts.
 
 The closure passed to `plugin::on_msg()` runs every time a message is received.
 
-Kovi has encapsulated all available OneBot standard APIs. To extend the API, you can use `RuntimeBot`'s `send_api()` to send APIs yourself. You can check out the API extension plugins available for your needs at [Kovi Plugin Shop](https://threkork.github.io/kovi-doc/start/plugins).
+Kovi has encapsulated all available OneBot standard APIs. To extend the API, you can use `RuntimeBot`'s `send_api()` to send APIs yourself. You can check out the API extension plugins available for your needs at [Kovi Plugin Shop](https://thricecola.github.io/kovi-doc/start/plugins).
 
-You can find more documentation in the [Kovi Doc](https://threkork.github.io/kovi-doc/).
+You can find more documentation in the [Kovi Doc](https://thricecola.github.io/kovi-doc/).

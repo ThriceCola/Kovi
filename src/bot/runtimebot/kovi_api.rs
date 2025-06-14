@@ -1,15 +1,13 @@
 use super::RuntimeBot;
-use crate::{
-    bot::{ApiAndOneshot, PluginInfo},
-    error::BotError,
-    Bot, PluginBuilder,
-};
-use serde::{Deserialize, Serialize};
-use std::{
-    path::PathBuf,
-    sync::{Arc, RwLock},
-};
+use crate::{Bot, PluginBuilder, RT, error::BotError, plugin::PluginInfo, types::ApiAndOneshot};
+use parking_lot::RwLock;
+use std::{path::PathBuf, sync::Arc};
 use tokio::sync::mpsc;
+
+#[cfg(feature = "plugin-access-control")]
+use ahash::HashSet;
+#[cfg(feature = "plugin-access-control")]
+use serde::{Deserialize, Serialize};
 
 #[deprecated(since = "0.11.0", note = "弃用，直接删掉就好了")]
 pub trait KoviApi {}
@@ -28,6 +26,7 @@ pub enum SetAdmin {
     Changes(Vec<i64>),
 }
 
+#[cfg(feature = "plugin-access-control")]
 #[derive(Debug, Clone)]
 pub enum SetAccessControlList {
     /// 增加一个名单
@@ -42,6 +41,14 @@ pub enum SetAccessControlList {
     Changes(Vec<i64>),
 }
 
+#[cfg(feature = "plugin-access-control")]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct AccessList {
+    pub friends: HashSet<i64>,
+    pub groups: HashSet<i64>,
+}
+
+#[cfg(feature = "plugin-access-control")]
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub enum AccessControlMode {
     BlackList,
@@ -69,7 +76,7 @@ impl RuntimeBot {
             None => return Err(BotError::RefExpired),
         };
 
-        let mut bot = bot.write().unwrap();
+        let mut bot = bot.write();
 
         let plugin_name = plugin_name.as_ref();
 
@@ -101,7 +108,7 @@ impl RuntimeBot {
             None => return Err(BotError::RefExpired),
         };
 
-        let mut bot = bot.write().unwrap();
+        let mut bot = bot.write();
 
         let plugin_name = plugin_name.as_ref();
 
@@ -136,7 +143,7 @@ impl RuntimeBot {
             None => return Err(BotError::RefExpired),
         };
 
-        let mut bot = bot.write().unwrap();
+        let mut bot = bot.write();
 
         let plugin_name = plugin_name.as_ref();
 
@@ -176,7 +183,7 @@ impl RuntimeBot {
             }
             // 添加多个用户到名单
             (SetAccessControlList::Adds(ids), false) => {
-                bot.information.deputy_admins.extend(ids.into_iter());
+                bot.information.deputy_admins.extend(ids);
             }
             // 从名单中移除一个用户
             (SetAccessControlList::Remove(id), false) => {
@@ -210,13 +217,13 @@ impl RuntimeBot {
             None => return Err(BotError::RefExpired),
         };
 
-        let mut bot = bot.write().unwrap();
+        let mut bot = bot.write();
         match change {
             SetAdmin::Add(id) => {
                 bot.information.deputy_admins.insert(id);
             }
             SetAdmin::Adds(ids) => {
-                bot.information.deputy_admins.extend(ids.into_iter());
+                bot.information.deputy_admins.extend(ids);
             }
             SetAdmin::Remove(id) => {
                 bot.information.deputy_admins.remove(&id);
@@ -244,7 +251,7 @@ impl RuntimeBot {
             None => return Err(BotError::RefExpired),
         };
 
-        let id = bot.read().unwrap().information.main_admin;
+        let id = bot.read().information.main_admin;
         Ok(id)
     }
 
@@ -260,7 +267,7 @@ impl RuntimeBot {
             None => return Err(BotError::RefExpired),
         };
 
-        let ids = bot.read().unwrap().information.deputy_admins.clone();
+        let ids = bot.read().information.deputy_admins.clone();
         Ok(ids.into_iter().collect())
     }
 
@@ -278,7 +285,7 @@ impl RuntimeBot {
 
         let mut admins = Vec::with_capacity(1);
 
-        let bot = bot.read().unwrap();
+        let bot = bot.read();
 
         admins.push(bot.information.main_admin);
 
@@ -291,8 +298,14 @@ impl RuntimeBot {
 /// 工具
 impl RuntimeBot {
     /// 获取插件自己的路径
+    ///
+    /// # panic
+    ///
+    /// 可能会 panic 的情况：
+    ///  - 当前运行目录不存在，这种情况很少见。
+    ///  - 权限不足，无法访问当前目录，这样肯定不能运行插件。
     pub fn get_data_path(&self) -> PathBuf {
-        let mut current_dir = std::env::current_dir().unwrap();
+        let mut current_dir = std::env::current_dir().expect("Get current directory failed");
 
         current_dir.push(format!("data/{}", self.plugin_name));
         current_dir
@@ -313,7 +326,7 @@ impl RuntimeBot {
             None => return Err(BotError::RefExpired),
         };
 
-        let bot = bot.read().unwrap();
+        let bot = bot.read();
 
         let plugins_info: Vec<PluginInfo> = bot
             .plugins
@@ -323,8 +336,11 @@ impl RuntimeBot {
                 version: plugin.version.clone(),
                 enabled: *plugin.enabled.borrow(),
                 enable_on_startup: plugin.enable_on_startup,
+                #[cfg(feature = "plugin-access-control")]
                 access_control: plugin.access_control,
+                #[cfg(feature = "plugin-access-control")]
                 list_mode: plugin.list_mode,
+                #[cfg(feature = "plugin-access-control")]
                 access_list: plugin.access_list.clone(),
             })
             .collect();
@@ -340,12 +356,16 @@ impl RuntimeBot {
     ///
     /// 如果此 `RuntimeBot` 实例内部的 `Bot` 中已经不存在，将会返回Err `BotError::RefExpired` 。
     /// 这通常出现在 `Bot` 已经关闭，可有个不受 Kovi 管理的线程仍然拥有此 `RuntimeBot`。
+    ///
+    /// # panic
+    ///
+    /// 如果插件的 Drop 闭包发生 panic ，此函数也会 panic
     pub async fn restart_plugin<T: AsRef<str>>(&self, plugin_name: T) -> Result<(), BotError> {
         if self.is_plugin_enable(&plugin_name)? {
             let join = self.disable_plugin(&plugin_name)?;
 
             if let Some(join) = join {
-                join.await.unwrap()
+                join.await.expect("Internal thread panic")
             }
         }
 
@@ -411,7 +431,7 @@ impl RuntimeBot {
             None => return Err(BotError::RefExpired),
         };
 
-        let bot = bot.read().unwrap();
+        let bot = bot.read();
         let plugin_name = plugin_name.as_ref();
 
         let bot_plugin = match bot.plugins.get(plugin_name) {
@@ -429,7 +449,7 @@ pub(crate) fn disable_plugin<T: AsRef<str>>(
 ) -> Result<tokio::task::JoinHandle<()>, BotError> {
     let join;
     {
-        let mut bot = bot.write().unwrap();
+        let mut bot = bot.write();
 
         let plugin_name = plugin_name.as_ref();
 
@@ -448,7 +468,7 @@ fn enable_plugin<T: AsRef<str>>(
     plugin_name: T,
     api_tx: mpsc::Sender<ApiAndOneshot>,
 ) -> Result<(), BotError> {
-    let bot_read = bot.read().unwrap();
+    let bot_read = bot.read();
     let plugin_name = plugin_name.as_ref();
 
     let (host, port) = {
@@ -458,9 +478,8 @@ fn enable_plugin<T: AsRef<str>>(
         )
     };
 
-    let bot_plugin = match bot_read.plugins.get(plugin_name) {
-        Some(v) => v,
-        None => return Err(BotError::PluginNotFound(plugin_name.to_string())),
+    let Some(bot_plugin) = bot_read.plugins.get(plugin_name) else {
+        return Err(BotError::PluginNotFound(plugin_name.to_string()));
     };
 
     bot_plugin.enabled.send_modify(|v| {
@@ -472,7 +491,7 @@ fn enable_plugin<T: AsRef<str>>(
     let plugin_builder =
         PluginBuilder::new(plugin_name.to_string(), bot.clone(), host, port, api_tx);
 
-    tokio::spawn(async move { Bot::run_plugin_main(&plugin_, plugin_builder) });
+    RT.spawn(async move { plugin_.run(plugin_builder) });
 
     Ok(())
 }

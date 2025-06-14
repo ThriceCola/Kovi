@@ -1,45 +1,35 @@
 #[cfg(feature = "logger")]
 pub fn set_logger() {
-    use anstyle::{Color, Style};
     use chrono::Local;
     use log::Level;
     use std::io::Write;
 
+    macro_rules! _format {
+        ($level:literal, $timestamp:ident, $record:ident, $($color:ident),+ $(,)?) => {{
+            let color = dialoguer::console::style($level)$(.$color())+;
+            format!("[{}] [{}]: {}", color, $timestamp, $record.args())
+        }};
+      }
+
     let init = env_logger::Builder::from_default_env()
         .format(|buf, record| {
-            /* let green = Style::new().fg_color(Some(Color::Rgb((85, 170, 127).into()))); */
-            let yellow = Style::new().fg_color(Some(Color::Rgb((255, 170, 127).into())));
-            let red = Style::new().fg_color(Some(Color::Rgb((200, 85, 85).into())));
-
-            let timestamp = Local::now().format("%m-%d %H:%M:%S");
+            let t = Local::now().format("%m-%d %H:%M:%S");
 
             match record.level() {
                 Level::Info => {
-                    writeln!(buf, "[{timestamp}] {}", record.args())
+                    writeln!(buf, "[{t}] {}", record.args())
                 }
                 Level::Debug => {
-                    writeln!(
-                        buf,
-                        "{yellow}[Debug]{yellow:#} [{timestamp}]: {}",
-                        record.args()
-                    )
+                    writeln!(buf, "{}", _format!("Debug", t, record, yellow, italic))
                 }
                 Level::Warn => {
-                    writeln!(
-                        buf,
-                        "{yellow}[Warn]{yellow:#} [{timestamp}]: {}",
-                        record.args()
-                    )
+                    writeln!(buf, "{}", _format!("Warn", t, record, yellow))
                 }
                 Level::Error => {
-                    writeln!(
-                        buf,
-                        "{red}[Error]{yellow:#} [{timestamp}]: {}",
-                        record.args()
-                    )
+                    writeln!(buf, "{}", _format!("Error", t, record, red))
                 }
                 Level::Trace => {
-                    writeln!(buf, "{red}[Trace]{red:#} [{timestamp}]: {}", record.args())
+                    writeln!(buf, "{}", _format!("Trace", t, record, magenta))
                 }
             }
         })
@@ -56,4 +46,22 @@ pub fn set_logger() {
 pub fn try_set_logger() {
     #[cfg(feature = "logger")]
     set_logger();
+}
+
+#[cfg(feature = "logger")]
+#[test]
+fn test_logger() {
+    unsafe {
+        std::env::set_var("RUST_LOG", "trace");
+    }
+
+    // Initialize the logger
+    try_set_logger();
+
+    // Test different log levels
+    log::info!("This is an info message - should appear without color");
+    log::debug!("This is a debug message - should appear in yellow");
+    log::warn!("This is a warning message - should appear in yellow");
+    log::error!("This is an error message - should appear in red");
+    log::trace!("This is a trace message - should appear in red");
 }

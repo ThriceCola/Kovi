@@ -22,11 +22,11 @@ Kovi 是一个 OneBot V11 的插件框架，如果你想用 Rust 来开发 OneBo
 
 ### ↓ 文档在这里
 
-[Kovi Doc](https://threkork.github.io/kovi-doc/)
+[Kovi Doc](https://thricecola.github.io/kovi-doc/)
 
 ### ↓ 商店在这里
 
-[Kovi Shop](https://kovi.threkork.com/start/plugins.html)
+[Kovi Shop](https://thricecola.github.io/kovi-doc/start/plugins.html)
 
 **注意⚠️，项目目前只支持 OneBot V11 正向 WebSocket 协议**
 

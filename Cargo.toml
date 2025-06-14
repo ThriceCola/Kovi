@@ -4,10 +4,10 @@ version = "2025.1.0"
 edition = "2021"
 description = "A OneBot V11 bot plugin framework"
 license = "MPL-2.0"
-authors = ["Threkork <threkork@hotmail.com>"]
-repository = "https://github.com/Threkork/Kovi"
+authors = ["ThriceCola <thricecola@hotmail.com>"]
+repository = "https://github.com/thricecola/Kovi"
 readme = "README_Cargo.md"
-documentation = "https://threkork.github.io/kovi-doc/"
+documentation = "https://thricecola.github.io/kovi-doc/"
 keywords = ["kovi", "onebot", "framework"]
 
 [lib]
@@ -15,15 +15,13 @@ name = "kovi"
 path = "src/lib.rs"
 
 [dependencies]
-regex = "1"
 chrono = "0.4"
 dialoguer = { version = "0.11", features = ["fuzzy-select"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
 log = "0.4"
-anstyle = "1"
-kovi-macros = "0.4"
+kovi-macros = { version = "0.5" }
 env_logger = { version = "0.11", default-features = false, features = [
     "auto-color",
     "color",
@@ -35,10 +33,9 @@ http = "1"
 toml = "0.8"
 toml_edit = "0.22"
 croner = "2"
-rand = "0.8"
+rand = "0.9"
 ahash = "0.8"
 parking_lot = "0.12"
-
 
 [features]
 default = ["logger", "save_bot_status", "plugin-access-control"]
@@ -48,14 +45,15 @@ save_bot_admin = []
 save_plugin_status = []
 plugin-access-control = []
 
+<<<<<<< HEAD
 message_sent = []
 
+=======
+>>>>>>> main
 cqstring = []
 
-native-tls = ["tokio-tungstenite/native-tls-vendored"]
-
+native-tls-vendored = ["tokio-tungstenite/native-tls-vendored"]
 rustls-tls-webpki-roots = ["tokio-tungstenite/rustls-tls-webpki-roots"]
-
 rustls-tls-native-roots = ["tokio-tungstenite/rustls-tls-native-roots"]
 
 [package.metadata]

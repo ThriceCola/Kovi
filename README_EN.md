@@ -22,10 +22,10 @@ Kovi is a plugin framework for OneBot V11. If you want to develop OneBot V11 bot
 
 ### ↓ Documentation is here
 
-[Kovi Doc](https://threkork.github.io/kovi-doc/)
+[Kovi Doc](https://thricecola.github.io/kovi-doc/)
 
 ### ↓ The store is here
 
-[Kovi Shop](https://kovi.threkork.com/start/plugins.html)
+[Kovi Shop](https://kovi.thricecola.com/start/plugins.html)
 
 **Note ⚠️: Currently, the project only supports OneBot V11's forward WebSocket protocol.**

@@ -30,3 +30,10 @@ pub enum BotBuildError {
     #[error("Failed to read TOML file: {0}")]
     FileReadError(String),
 }
+
+#[derive(Error, Debug)]
+pub enum EventBuildError {
+    /// 解析出错
+    #[error("Parse error: {0}")]
+    ParseError(String),
+}

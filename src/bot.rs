@@ -2,260 +2,51 @@ use ahash::{HashMapExt as _, RandomState};
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Input, Select};
 use plugin_builder::Listen;
+use rand::Rng as _;
+#[cfg(feature = "plugin-access-control")]
+use runtimebot::kovi_api::AccessList;
 use serde::{Deserialize, Serialize};
 use serde_json::{self, Value};
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fmt::{Debug, Display};
-use std::future::Future;
 use std::io::Write as _;
 use std::net::{Ipv4Addr, Ipv6Addr};
-use std::pin::Pin;
 use std::{fs, net::IpAddr, sync::Arc};
 use tokio::sync::mpsc::{self};
-use tokio::sync::{oneshot, watch};
-use tokio::task::JoinHandle;
+use tokio::sync::watch;
 
 use crate::error::{BotBuildError, BotError};
-use crate::task::TASK_MANAGER;
 
+use crate::RT;
+#[cfg(feature = "plugin-access-control")]
 pub use crate::bot::runtimebot::kovi_api::AccessControlMode;
+
+use crate::plugin::{Plugin, PluginStatus};
+use crate::types::KoviAsyncFn;
 
 pub(crate) mod connect;
 pub(crate) mod handler;
 pub(crate) mod run;
 
+// 兼容
+pub use crate::plugin::plugin_builder;
+pub mod event;
 pub mod message;
-pub mod plugin_builder;
 pub mod runtimebot;
-
-tokio::task_local! {
-    pub static PLUGIN_BUILDER: crate::PluginBuilder;
-}
-
-tokio::task_local! {
-    pub static PLUGIN_NAME: Arc<String>;
-}
-
-/// kovi的配置
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct KoviConf {
-    pub config: Config,
-    pub server: Server,
-}
-
-impl AsRef<KoviConf> for KoviConf {
-    fn as_ref(&self) -> &KoviConf {
-        self
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Config {
-    pub main_admin: i64,
-    pub admins: Vec<i64>,
-    pub debug: bool,
-}
-
-impl KoviConf {
-    pub fn new(main_admin: i64, admins: Option<Vec<i64>>, server: Server, debug: bool) -> Self {
-        KoviConf {
-            config: Config {
-                main_admin,
-                admins: admins.unwrap_or_default(),
-                debug,
-            },
-            server,
-        }
-    }
-}
-
-type KoviAsyncFn = dyn Fn() -> Pin<Box<dyn Future<Output = ()> + Send>> + Send + Sync;
-
-impl Drop for Bot {
-    fn drop(&mut self) {
-        for i in self.run_abort.iter() {
-            i.abort();
-        }
-    }
-}
 
 /// bot结构体
 #[derive(Clone)]
 pub struct Bot {
     pub information: BotInformation,
-    pub(crate) plugins: HashMap<String, BotPlugin, RandomState>,
+    pub(crate) plugins: HashMap<String, Plugin, RandomState>,
     pub(crate) run_abort: Vec<tokio::task::AbortHandle>,
 }
-
-#[derive(Clone)]
-pub(crate) struct BotPlugin {
-    pub(crate) enable_on_startup: bool,
-    pub(crate) enabled: watch::Sender<bool>,
-
-    pub(crate) name: String,
-    pub(crate) version: String,
-    pub(crate) main: Arc<KoviAsyncFn>,
-    pub(crate) listen: Listen,
-
-    #[cfg(feature = "plugin-access-control")]
-    pub(crate) access_control: bool,
-    #[cfg(feature = "plugin-access-control")]
-    pub(crate) list_mode: AccessControlMode,
-    #[cfg(feature = "plugin-access-control")]
-    pub(crate) access_list: AccessList,
-}
-
-#[cfg(feature = "plugin-access-control")]
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct AccessList {
-    pub friends: HashSet<i64>,
-    pub groups: HashSet<i64>,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct PluginInfo {
-    pub name: String,
-    pub version: String,
-    /// 插件是否启用
-    pub enabled: bool,
-    /// 插件是否在Bot启动时启用
-    pub enable_on_startup: bool,
-    /// 插件是否启用框架级访问控制
-    pub access_control: bool,
-    /// 插件的访问控制模式
-    pub list_mode: AccessControlMode,
-    /// 插件的访问控制列表
-    pub access_list: AccessList,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-struct PluginStatus {
-    enable_on_startup: bool,
-    access_control: bool,
-    list_mode: AccessControlMode,
-    access_list: AccessList,
-}
-
-/// bot信息结构体
-#[derive(Debug, Clone)]
-pub struct BotInformation {
-    pub main_admin: i64,
-    pub deputy_admins: HashSet<i64>,
-    pub server: Server,
-}
-/// server信息
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct Server {
-    pub host: Host,
-    pub port: u16,
-    pub access_token: String,
-    pub secure: bool,
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone)]
-#[serde(untagged)]
-pub enum Host {
-    IpAddr(IpAddr),
-    Domain(String),
-}
-
-impl Display for Host {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Host::IpAddr(ip) => write!(f, "{}", ip),
-            Host::Domain(domain) => write!(f, "{}", domain),
+impl Drop for Bot {
+    fn drop(&mut self) {
+        for i in self.run_abort.iter() {
+            i.abort();
         }
-    }
-}
-
-impl Server {
-    pub fn new(host: Host, port: u16, access_token: String, secure: bool) -> Self {
-        Server {
-            host,
-            port,
-            access_token,
-            secure,
-        }
-    }
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct SendApi {
-    pub action: String,
-    pub params: Value,
-    pub echo: String,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ApiReturn {
-    pub status: String,
-    pub retcode: i32,
-    pub data: Value,
-    pub echo: String,
-}
-
-pub(crate) type ApiAndOneshot = (
-    SendApi,
-    Option<oneshot::Sender<Result<ApiReturn, ApiReturn>>>,
-);
-
-impl std::fmt::Display for ApiReturn {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "status: {}, retcode: {}, data: {}, echo: {}",
-            self.status, self.retcode, self.data, self.echo
-        )
-    }
-}
-
-impl std::fmt::Display for SendApi {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", serde_json::to_string(self).unwrap())
-    }
-}
-
-impl SendApi {
-    pub fn new(action: &str, params: Value, echo: &str) -> Self {
-        SendApi {
-            action: action.to_string(),
-            params,
-            echo: echo.to_string(),
-        }
-    }
-}
-
-impl BotPlugin {
-    fn shutdown(&mut self) -> JoinHandle<()> {
-        log::debug!("Plugin '{}' is dropping.", self.name,);
-
-        let plugin_name_ = Arc::new(self.name.clone());
-
-        let mut task_vec = Vec::new();
-
-        for listen in &self.listen.drop {
-            let listen_clone = listen.clone();
-            let plugin_name_ = plugin_name_.clone();
-            let task = tokio::spawn(async move {
-                PLUGIN_NAME
-                    .scope(plugin_name_, Bot::handler_drop(listen_clone))
-                    .await;
-            });
-            task_vec.push(task);
-        }
-
-        TASK_MANAGER.disable_plugin(&self.name);
-
-        self.enabled.send_modify(|v| {
-            *v = false;
-        });
-        self.listen.clear();
-        tokio::spawn(async move {
-            for task in task_vec {
-                let _ = task.await;
-            }
-        })
     }
 }
 
@@ -293,7 +84,8 @@ impl Bot {
         }
     }
 
-    /// 挂载插件的启动函数。
+    /// 挂载插件。
+    #[deprecated(since = "0.12.0", note = "请使用 `mount_plugin` 代替")]
     pub fn mount_main<T>(&mut self, name: T, version: T, main: Arc<KoviAsyncFn>)
     where
         String: From<T>,
@@ -301,7 +93,7 @@ impl Bot {
         let name = String::from(name);
         let version = String::from(version);
         let (tx, _rx) = watch::channel(true);
-        let bot_plugin = BotPlugin {
+        let bot_plugin = Plugin {
             enable_on_startup: true,
             enabled: tx,
             name: name.clone(),
@@ -317,6 +109,11 @@ impl Bot {
             access_list: AccessList::default(),
         };
         self.plugins.insert(name, bot_plugin);
+    }
+
+    /// 挂载插件。
+    pub fn mount_plugin(&mut self, plugin: Plugin) {
+        self.plugins.insert(plugin.name.clone(), plugin);
     }
 
     /// 读取本地Kovi.conf.toml文件
@@ -389,9 +186,12 @@ impl Bot {
                 plugin.enabled.send_modify(|v| {
                     *v = plugin_status.enable_on_startup;
                 });
-                plugin.access_control = plugin_status.access_control;
-                plugin.list_mode = plugin_status.list_mode;
-                plugin.access_list = plugin_status.access_list;
+                #[cfg(feature = "plugin-access-control")]
+                {
+                    plugin.access_control = plugin_status.access_control;
+                    plugin.list_mode = plugin_status.list_mode;
+                    plugin.access_list = plugin_status.access_list;
+                }
             }
         }
 
@@ -429,9 +229,12 @@ impl Bot {
                 plugin.enabled.send_modify(|v| {
                     *v = plugin_status.enable_on_startup;
                 });
-                plugin.access_control = plugin_status.access_control;
-                plugin.list_mode = plugin_status.list_mode;
-                plugin.access_list = plugin_status.access_list;
+                #[cfg(feature = "plugin-access-control")]
+                {
+                    plugin.access_control = plugin_status.access_control;
+                    plugin.list_mode = plugin_status.list_mode;
+                    plugin.access_list = plugin_status.access_list;
+                }
             }
         }
     }
@@ -508,9 +311,12 @@ impl Bot {
             let mut plugin_status = HashMap::new();
             for (name, plugin) in self.plugins.iter() {
                 plugin_status.insert(name.clone(), PluginStatus {
-                    enable_on_startup: plugin.enabled.borrow().clone(),
+                    enable_on_startup: *plugin.enabled.borrow(),
+                    #[cfg(feature = "plugin-access-control")]
                     access_control: plugin.access_control,
+                    #[cfg(feature = "plugin-access-control")]
                     list_mode: plugin.list_mode,
+                    #[cfg(feature = "plugin-access-control")]
                     access_list: plugin.access_list.clone(),
                 });
             }
@@ -566,6 +372,131 @@ impl Bot {
     }
 }
 
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct SendApi {
+    pub action: String,
+    pub params: Value,
+    echo: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ApiReturn {
+    pub status: String,
+    pub retcode: i32,
+    pub data: Value,
+    pub echo: String,
+}
+
+/// kovi的配置
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct KoviConf {
+    pub config: Config,
+    pub server: Server,
+}
+
+impl AsRef<KoviConf> for KoviConf {
+    fn as_ref(&self) -> &KoviConf {
+        self
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Config {
+    pub main_admin: i64,
+    pub admins: Vec<i64>,
+    pub debug: bool,
+}
+
+impl KoviConf {
+    pub fn new(main_admin: i64, admins: Option<Vec<i64>>, server: Server, debug: bool) -> Self {
+        KoviConf {
+            config: Config {
+                main_admin,
+                admins: admins.unwrap_or_default(),
+                debug,
+            },
+            server,
+        }
+    }
+}
+
+/// bot信息结构体
+#[derive(Debug, Clone)]
+pub struct BotInformation {
+    pub main_admin: i64,
+    pub deputy_admins: HashSet<i64>,
+    pub server: Server,
+}
+/// server信息
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct Server {
+    pub host: Host,
+    pub port: u16,
+    pub access_token: String,
+    pub secure: bool,
+}
+impl Server {
+    pub fn new(host: Host, port: u16, access_token: String, secure: bool) -> Self {
+        Server {
+            host,
+            port,
+            access_token,
+            secure,
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum Host {
+    IpAddr(IpAddr),
+    Domain(String),
+}
+impl Display for Host {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Host::IpAddr(ip) => write!(f, "{}", ip),
+            Host::Domain(domain) => write!(f, "{}", domain),
+        }
+    }
+}
+
+impl std::fmt::Display for ApiReturn {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "status: {}, retcode: {}, data: {}, echo: {}",
+            self.status, self.retcode, self.data, self.echo
+        )
+    }
+}
+
+impl std::fmt::Display for SendApi {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", serde_json::to_string(self).expect("unreachable"))
+    }
+}
+
+impl SendApi {
+    pub fn new(action: &str, params: Value) -> Self {
+        SendApi {
+            action: action.to_string(),
+            params,
+            echo: Self::rand_echo(),
+        }
+    }
+
+    pub fn rand_echo() -> String {
+        let mut rng = rand::rng();
+        let mut s = String::new();
+        s.push_str(&chrono::Utc::now().timestamp().to_string());
+        for _ in 0..10 {
+            s.push(rng.random_range('a'..='z'));
+        }
+        s
+    }
+}
+
 /// 将配置文件写入磁盘
 fn config_file_write_and_return() -> Result<KoviConf, std::io::Error> {
     enum HostType {
@@ -581,7 +512,7 @@ fn config_file_write_and_return() -> Result<KoviConf, std::io::Error> {
             .items(&items)
             .default(0)
             .interact()
-            .unwrap();
+            .expect("unreachable");
 
         match select {
             0 => HostType::IPv4,
@@ -597,7 +528,7 @@ fn config_file_write_and_return() -> Result<KoviConf, std::io::Error> {
                 .with_prompt("What is the IP of the OneBot server?")
                 .default(Ipv4Addr::new(127, 0, 0, 1))
                 .interact_text()
-                .unwrap();
+                .expect("unreachable");
             Host::IpAddr(IpAddr::V4(ip))
         }
         HostType::IPv6 => {
@@ -605,7 +536,7 @@ fn config_file_write_and_return() -> Result<KoviConf, std::io::Error> {
                 .with_prompt("What is the IP of the OneBot server?")
                 .default(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1))
                 .interact_text()
-                .unwrap();
+                .expect("unreachable");
             Host::IpAddr(IpAddr::V6(ip))
         }
         HostType::Domain => {
@@ -613,7 +544,7 @@ fn config_file_write_and_return() -> Result<KoviConf, std::io::Error> {
                 .with_prompt("What is the domain of the OneBot server?")
                 .default("localhost".to_string())
                 .interact_text()
-                .unwrap();
+                .expect("unreachable");
             Host::Domain(domain)
         }
     };
@@ -622,20 +553,20 @@ fn config_file_write_and_return() -> Result<KoviConf, std::io::Error> {
         .with_prompt("What is the port of the OneBot server?")
         .default(8081)
         .interact_text()
-        .unwrap();
+        .expect("unreachable");
 
     let access_token: String = Input::with_theme(&ColorfulTheme::default())
         .with_prompt("What is the access_token of the OneBot server? (Optional)")
         .default("".to_string())
         .show_default(false)
         .interact_text()
-        .unwrap();
+        .expect("unreachable");
 
     let main_admin: i64 = Input::with_theme(&ColorfulTheme::default())
         .with_prompt("What is the ID of the main administrator? (Not used yet)")
         .allow_empty(true)
         .interact_text()
-        .unwrap();
+        .expect("unreachable");
 
     // 是否查看更多可选选项
     let more: bool = {
@@ -645,7 +576,7 @@ fn config_file_write_and_return() -> Result<KoviConf, std::io::Error> {
             .items(&items)
             .default(0)
             .interact()
-            .unwrap();
+            .expect("unreachable");
 
         match select {
             0 => false,
@@ -665,7 +596,7 @@ fn config_file_write_and_return() -> Result<KoviConf, std::io::Error> {
                 .items(&items)
                 .default(0)
                 .interact()
-                .unwrap();
+                .expect("unreachable");
 
             match select {
                 0 => false,
@@ -726,9 +657,9 @@ macro_rules! build_bot {
             let mut bot = kovi::bot::Bot::build(&conf);
 
             $(
-                let (crate_name, crate_version) = $plugin::__kovi_get_plugin_info();
-                kovi::log::info!("Mounting plugin: {}", crate_name);
-                bot.mount_main(crate_name, crate_version, std::sync::Arc::new($plugin::__kovi_run_async_plugin));
+                let plugin = $plugin::__kovi_build_plugin();
+                kovi::log::info!("Mounting plugin: {}", &plugin.name);
+                bot.mount_plugin(plugin);
             )*
 
             bot.set_plugin_startup_use_file_ref();
