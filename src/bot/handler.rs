@@ -70,8 +70,7 @@ impl Bot {
 
         let bot_read = bot.read();
 
-        let mut cache: ahash::HashMap<std::any::TypeId, Option<Arc<dyn Event>>> =
-            ahash::HashMap::default();
+        let mut cache: TypeEventCacheMap = Default::default();
 
         if let Some(lifecycle_event) = LifecycleEvent::de(&msg, &bot_read.information, &api_tx) {
             tokio::spawn(LifecycleEvent::handler_lifecycle(api_tx.clone()));
@@ -87,24 +86,8 @@ impl Bot {
         let _msg_sevent_opt = match msg_event {
             Some(event) => {
                 let event = Arc::new(event);
-
-                info!(
-                    "[{message_type}{group_id}{nickname} {id}]: {text}",
-                    message_type = event.message_type,
-                    group_id = match event.group_id {
-                        Some(id) => id.to_string(),
-                        None => "".to_string(),
-                    },
-                    nickname = match &event.sender.nickname {
-                        Some(nickname) => nickname,
-                        None => "",
-                    },
-                    id = event.sender.user_id,
-                    text = event.message.to_human_string()
-                );
-
+                log_msg_event(&event);
                 cache.insert(std::any::TypeId::of::<MsgEvent>(), Some(event.clone()));
-
                 Some(event)
             }
             None => None,
@@ -165,6 +148,23 @@ impl Bot {
                 }
             }
         }
+
+        fn log_msg_event(event: &MsgEvent) {
+            info!(
+                "[{message_type}{group_id}{nickname} {id}]: {text}",
+                message_type = event.message_type,
+                group_id = match event.group_id {
+                    Some(id) => id.to_string(),
+                    None => "".to_string(),
+                },
+                nickname = match &event.sender.nickname {
+                    Some(nickname) => nickname,
+                    None => "",
+                },
+                id = event.sender.user_id,
+                text = event.message.to_human_string()
+            );
+        }
     }
 
     async fn handle_listen(listen: Arc<ListenInner>, cache_event: Arc<dyn Event + 'static>) {
@@ -194,5 +194,40 @@ fn is_access(plugin: &Plugin, event: &MsgEvent) -> bool {
         (AccessControlMode::BlackList, false) => {
             !access_list.friends.contains(&event.sender.user_id)
         }
+    }
+}
+
+#[allow(dead_code)]
+struct EventHandler<'a> {
+    plugin: ahash::HashMap<&'a str, Arc<dyn Event>>,
+}
+
+#[allow(warnings)]
+type PluginMap<'a> =
+    HashMap<std::any::TypeId, EventHandler<'a>, std::hash::BuildHasherDefault<IdHasher>>;
+
+#[allow(warnings)]
+type TypeEventCacheMap =
+    HashMap<std::any::TypeId, Option<Arc<dyn Event>>, std::hash::BuildHasherDefault<IdHasher>>;
+
+/// With TypeIds as keys, there's no need to hash them. They are already hashes
+/// themselves, coming from the compiler. The IdHasher holds the u64 of
+/// the TypeId, and then returns it, instead of doing any bit fiddling.
+#[derive(Default, Debug)]
+struct IdHasher(u64);
+
+impl std::hash::Hasher for IdHasher {
+    fn write(&mut self, _: &[u8]) {
+        unreachable!("TypeId calls write_u64");
+    }
+
+    #[inline]
+    fn write_u64(&mut self, id: u64) {
+        self.0 = id;
+    }
+
+    #[inline]
+    fn finish(&self) -> u64 {
+        self.0
     }
 }
