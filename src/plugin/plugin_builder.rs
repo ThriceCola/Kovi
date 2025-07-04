@@ -30,7 +30,7 @@ macro_rules! assert_right_place {
     };
 }
 
-trait DowncastArc: Any {
+pub(crate) trait DowncastArc: Any {
     fn downcast_arc<T: Any>(self: Arc<Self>) -> Result<Arc<T>, Arc<Self>>;
 }
 impl<T: ?Sized + Any> DowncastArc for T {

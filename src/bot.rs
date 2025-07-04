@@ -1,6 +1,7 @@
 use ahash::{HashMapExt as _, RandomState};
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Input, Select};
+use parking_lot::RwLock;
 use plugin_builder::Listen;
 use rand::Rng as _;
 #[cfg(feature = "plugin-access-control")]
@@ -38,7 +39,7 @@ pub mod runtimebot;
 /// bot结构体
 #[derive(Clone)]
 pub struct Bot {
-    pub information: BotInformation,
+    pub information: Arc<RwLock<BotInformation>>,
     pub(crate) plugins: HashMap<String, Plugin, RandomState>,
     pub(crate) run_abort: Vec<tokio::task::AbortHandle>,
 }
@@ -74,11 +75,11 @@ impl Bot {
     {
         let conf = conf.as_ref();
         Bot {
-            information: BotInformation {
+            information: Arc::new(RwLock::new(BotInformation {
                 main_admin: conf.config.main_admin,
                 deputy_admins: conf.config.admins.iter().cloned().collect(),
                 server: conf.server.clone(),
-            },
+            })),
             plugins: HashMap::<_, _, RandomState>::new(),
             run_abort: Vec::new(),
         }
@@ -347,11 +348,15 @@ impl Bot {
                 doc["config"] = toml_edit::table();
             }
 
+            let (main_admin, deputy_admins) = {
+                let info = self.information.read();
+                (info.main_admin, info.deputy_admins.clone())
+            };
+
             // 更新 "config" 中的 admin 信息
-            doc["config"]["main_admin"] = toml_edit::value(self.information.main_admin);
+            doc["config"]["main_admin"] = toml_edit::value(main_admin);
             doc["config"]["admins"] = toml_edit::Item::Value(toml_edit::Value::Array(
-                self.information
-                    .deputy_admins
+                deputy_admins
                     .iter()
                     .map(|&x| toml_edit::Value::from(x))
                     .collect(),

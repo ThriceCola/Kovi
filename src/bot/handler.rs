@@ -1,9 +1,6 @@
 use crate::{
     bot::{
-        plugin_builder::{
-            ListenInner,
-            event::{Event, lifecycle_event::LifecycleEvent},
-        },
+        plugin_builder::{ListenInner, event::Event},
         *,
     },
     event::InternalEvent,
@@ -13,7 +10,7 @@ use crate::{
 use log::info;
 use parking_lot::RwLock;
 use plugin_builder::event::MsgEvent;
-use std::sync::Arc;
+use std::{any::TypeId, sync::Arc};
 
 /// Kovi内部事件
 pub(crate) enum InternalInternalEvent {
@@ -70,70 +67,118 @@ impl Bot {
 
         let bot_read = bot.read();
 
-        let mut cache: TypeEventCacheMap = Default::default();
+        let mut type_plugin_map: PluginMap = Default::default();
 
-        if let Some(lifecycle_event) = LifecycleEvent::de(&msg, &bot_read.information, &api_tx) {
-            tokio::spawn(LifecycleEvent::handler_lifecycle(api_tx.clone()));
-            cache.insert(
-                std::any::TypeId::of::<LifecycleEvent>(),
-                Some(Arc::new(lifecycle_event)),
-            );
-        };
+        let info = bot_read.information.clone();
 
-        let msg_event = MsgEvent::de(&msg, &bot_read.information, &api_tx);
+        let plugin_cache = bot_read
+            .plugins
+            .iter()
+            .map(|(name, plugin)| {
+                let name = Arc::new(name.clone());
 
-        // 这里在 没有 plugin-access-control 会警告所以用 _
-        let _msg_sevent_opt = match msg_event {
-            Some(event) => {
-                let event = Arc::new(event);
-                log_msg_event(&event);
-                cache.insert(std::any::TypeId::of::<MsgEvent>(), Some(event.clone()));
-                Some(event)
-            }
-            None => None,
-        };
+                (name.clone(), PluginCache {
+                    name,
+                    acc: Arc::new(AccCache::new(
+                        plugin.access_control,
+                        plugin.list_mode,
+                        plugin.access_list.clone(),
+                    )),
+                    bot_info: info.clone(),
+                    enabled: plugin.enabled.subscribe(),
+                })
+            })
+            .collect::<ahash::HashMap<Arc<String>, PluginCache>>();
 
         for (name, plugin) in bot_read.plugins.iter() {
-            #[cfg(feature = "plugin-access-control")]
-            if let Some(event) = &_msg_sevent_opt {
-                // 判断是否黑白名单
-                if !is_access(plugin, event) {
-                    continue;
-                }
-            }
-
-            let name_ = Arc::new(name.clone());
-
             for listen in &plugin.listen.list {
-                let name = name_.clone();
-                let api_tx = api_tx.clone();
+                let plugin_map = type_plugin_map
+                    .entry(listen.type_id)
+                    .or_insert_with(|| Default::default());
 
-                let cache_event = match cache.get(&listen.type_id) {
-                    Some(event) => match event {
+                let plugin_vec = plugin_map
+                    .plugins
+                    .entry(plugin_cache.get(name).expect("unreachable").name.clone())
+                    .or_insert_with(|| Default::default());
+
+                plugin_vec.push(listen.clone());
+            }
+        }
+
+        let msg_event = MsgEvent::de(&msg, &info.read(), &api_tx).and_then(|e| {
+            log_msg_event(&e);
+            Some(Arc::new(e))
+        });
+
+        let msg = Arc::new(msg);
+        let api_tx = Arc::new(api_tx);
+
+        let plugin_cache = Arc::new(plugin_cache);
+
+        for (type_id, plugin_map) in type_plugin_map {
+            tokio::spawn(type_handler(
+                type_id,
+                plugin_map,
+                msg_event.clone(),
+                msg.clone(),
+                api_tx.clone(),
+                plugin_cache.clone(),
+            ));
+        }
+
+        async fn type_handler(
+            type_id: TypeId,
+            plugin_map: EventHandler,
+            msg_event: Option<Arc<MsgEvent>>,
+            msg: Arc<InternalEvent>,
+            api_tx: Arc<mpsc::Sender<ApiAndOneshot>>,
+            plugin_cache: Arc<ahash::HashMap<Arc<String>, PluginCache>>,
+        ) {
+            let mut event_cache = if type_id == TypeId::of::<MsgEvent>() {
+                msg_event.clone().map(|arc| arc as Arc<dyn Event>)
+            } else {
+                None
+            };
+
+            'type_level: for (name, mut plugin_vec) in plugin_map.plugins.into_iter() {
+                let plugin_cache = plugin_cache.get(&name).expect("unreachable");
+
+                #[cfg(feature = "plugin-access-control")]
+                if let Some(event) = &msg_event {
+                    // 判断是否黑白名单
+                    if !is_access(&plugin_cache.acc, &event) {
+                        continue;
+                    }
+                }
+
+                let plugin_vec = plugin_vec.drain(..).collect::<Vec<_>>();
+
+                for listen in plugin_vec {
+                    let event = match &event_cache {
+                        Some(v) => v.clone(),
                         None => {
-                            continue;
-                        }
-                        Some(event) => event.clone(),
-                    },
-                    None => {
-                        let event_opt = (listen.type_de)(&msg, &bot_read.information, &api_tx);
-                        cache.insert(listen.type_id, event_opt.clone());
-                        match event_opt {
-                            Some(event) => event,
-                            None => continue,
-                        }
-                    }
-                };
+                            let event_opt =
+                                (listen.type_de)(&msg, &plugin_cache.bot_info.read(), &api_tx);
 
-                let listen = listen.clone();
-                let enabled = plugin.enabled.subscribe();
+                            match event_opt {
+                                Some(event) => event,
+                                None => break 'type_level,
+                            }
+                        }
+                    };
 
-                RT.spawn(async move {
-                    tokio::select! {
-                        _ = PLUGIN_NAME.scope(name, Self::handle_listen(listen, cache_event)) => {}
-                        _ = monitor_enabled_state(enabled) => {}
-                    }
-                });
+                    event_cache = Some(event.clone());
+
+                    let name = name.clone();
+                    let enabled = plugin_cache.enabled.clone();
+
+                    RT.spawn(async move {
+                        tokio::select! {
+                            _ = PLUGIN_NAME.scope(name, Bot::handle_listen(listen, event)) => {}
+                            _ = monitor_enabled_state(enabled) => {}
+                        }
+                    });
+                }
             }
         }
 
@@ -172,8 +217,35 @@ impl Bot {
     }
 }
 
+struct PluginCache {
+    name: Arc<String>,
+    acc: Arc<AccCache>,
+    bot_info: Arc<RwLock<BotInformation>>,
+    enabled: watch::Receiver<bool>,
+}
+
 #[cfg(feature = "plugin-access-control")]
-fn is_access(plugin: &Plugin, event: &MsgEvent) -> bool {
+struct AccCache {
+    pub(crate) access_control: bool,
+    pub(crate) list_mode: AccessControlMode,
+    pub(crate) access_list: AccessList,
+}
+impl AccCache {
+    pub fn new(
+        access_control: bool,
+        list_mode: AccessControlMode,
+        access_list: AccessList,
+    ) -> Self {
+        Self {
+            access_control,
+            list_mode,
+            access_list,
+        }
+    }
+}
+
+#[cfg(feature = "plugin-access-control")]
+fn is_access(plugin: &AccCache, event: &MsgEvent) -> bool {
     if !plugin.access_control {
         return true;
     }
@@ -198,13 +270,14 @@ fn is_access(plugin: &Plugin, event: &MsgEvent) -> bool {
 }
 
 #[allow(dead_code)]
-struct EventHandler<'a> {
-    plugin: ahash::HashMap<&'a str, Arc<dyn Event>>,
+#[derive(Default)]
+struct EventHandler {
+    plugins: ahash::HashMap<Arc<String>, Vec<Arc<ListenInner>>>,
 }
 
 #[allow(warnings)]
 type PluginMap<'a> =
-    HashMap<std::any::TypeId, EventHandler<'a>, std::hash::BuildHasherDefault<IdHasher>>;
+    HashMap<std::any::TypeId, EventHandler, std::hash::BuildHasherDefault<IdHasher>>;
 
 #[allow(warnings)]
 type TypeEventCacheMap =
@@ -231,3 +304,60 @@ impl std::hash::Hasher for IdHasher {
         self.0
     }
 }
+
+// if let Some(lifecycle_event) = LifecycleEvent::de(&msg, &bot_read.information, &api_tx) {
+//     tokio::spawn(lifecycle_event::handler_lifecycle_log_bot_enable(
+//         api_tx.clone(),
+//     ));
+//     cache.insert(
+//         std::any::TypeId::of::<LifecycleEvent>(),
+//         Some(Arc::new(lifecycle_event)),
+//     );
+// };
+
+// // 这里在 没有 plugin-access-control 会警告所以用 _
+// let _msg_sevent_opt = match msg_event {
+//     Some(event) => {
+//         let event = Arc::new(event);
+//         log_msg_event(&event);
+//         cache.insert(std::any::TypeId::of::<MsgEvent>(), Some(event.clone()));
+//         Some(event)
+//     }
+//     None => None,
+// };
+
+// for (name, plugin) in bot_read.plugins.iter() {
+//     let name_ = Arc::new(name.clone());
+
+//     for listen in &plugin.listen.list {
+//         let name = name_.clone();
+//         let api_tx = api_tx.clone();
+
+//         let cache_event = match cache.get(&listen.type_id) {
+//             Some(event) => match event {
+//                 None => {
+//                     continue;
+//                 }
+//                 Some(event) => event.clone(),
+//             },
+//             None => {
+//                 let event_opt = (listen.type_de)(&msg, &bot_read.information, &api_tx);
+//                 cache.insert(listen.type_id, event_opt.clone());
+//                 match event_opt {
+//                     Some(event) => event,
+//                     None => continue,
+//                 }
+//             }
+//         };
+
+//         let listen = listen.clone();
+//         let enabled = plugin.enabled.subscribe();
+
+//         RT.spawn(async move {
+//             tokio::select! {
+//                 _ = PLUGIN_NAME.scope(name, Self::handle_listen(listen, cache_event)) => {}
+//                 _ = monitor_enabled_state(enabled) => {}
+//             }
+//         });
+//     }
+// }

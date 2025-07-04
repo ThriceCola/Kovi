@@ -2,9 +2,9 @@
 //!
 //! A OneBot V11 bot framework developed using Rust.
 //!
-//! More documentation can be found at [Github-Kovi](https://github.com/Threkork/Kovi) Or [Kovi-doc](https://threkork.github.io/kovi-doc/)
+//! More documentation can be found at [Github-Kovi](https://github.com/ThriceCola/Kovi) Or [Kovi-doc](https://thricecola.github.io/kovi-doc/)
 //!
-//! 中文文档或更多文档请查看[Github-Kovi](https://github.com/Threkork/Kovi) 和 [Kovi-doc](https://threkork.github.io/kovi-doc/)
+//! 中文文档或更多文档请查看[Github-Kovi](https://github.com/ThriceCola/Kovi) 和 [Kovi-doc](https://thricecola.github.io/kovi-doc/)
 #![deny(clippy::unwrap_used)]
 
 /// Everything about bots is inside

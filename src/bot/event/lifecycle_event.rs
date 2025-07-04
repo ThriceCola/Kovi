@@ -50,60 +50,58 @@ impl Event for LifecycleEvent {
     }
 }
 
-impl LifecycleEvent {
-    pub(crate) async fn handler_lifecycle(api_tx_: mpsc::Sender<ApiAndOneshot>) {
-        let api_msg = SendApi::new("get_login_info", json!({}));
+pub(crate) async fn handler_lifecycle_log_bot_enable(api_tx_: mpsc::Sender<ApiAndOneshot>) {
+    let api_msg = SendApi::new("get_login_info", json!({}));
 
-        #[allow(clippy::type_complexity)]
-        let (api_tx, api_rx): (
-            oneshot::Sender<Result<ApiReturn, ApiReturn>>,
-            oneshot::Receiver<Result<ApiReturn, ApiReturn>>,
-        ) = oneshot::channel();
+    #[allow(clippy::type_complexity)]
+    let (api_tx, api_rx): (
+        oneshot::Sender<Result<ApiReturn, ApiReturn>>,
+        oneshot::Receiver<Result<ApiReturn, ApiReturn>>,
+    ) = oneshot::channel();
 
-        api_tx_
-            .send((api_msg, Some(api_tx)))
-            .await
-            .expect("The api_tx channel closed");
+    api_tx_
+        .send((api_msg, Some(api_tx)))
+        .await
+        .expect("The api_tx channel closed");
 
-        let receive = match api_rx.await {
-            Ok(v) => v,
-            Err(e) => {
-                error!("Lifecycle Error, get bot info failed: {}", e);
-                return;
-            }
-        };
+    let receive = match api_rx.await {
+        Ok(v) => v,
+        Err(e) => {
+            error!("Lifecycle Error, get bot info failed: {}", e);
+            return;
+        }
+    };
 
-        let self_info_value = match receive {
-            Ok(v) => v,
-            Err(e) => {
-                error!("Lifecycle Error, get bot info failed: {}", e);
-                return;
-            }
-        };
+    let self_info_value = match receive {
+        Ok(v) => v,
+        Err(e) => {
+            error!("Lifecycle Error, get bot info failed: {}", e);
+            return;
+        }
+    };
 
-        let self_id = match self_info_value.data.get("user_id") {
-            Some(user_id) => match user_id.as_i64() {
-                Some(id) => id,
-                None => {
-                    error!("Expected 'user_id' to be an integer");
-                    return;
-                }
-            },
+    let self_id = match self_info_value.data.get("user_id") {
+        Some(user_id) => match user_id.as_i64() {
+            Some(id) => id,
             None => {
-                error!("Missing 'user_id' in self_info_value data");
+                error!("Expected 'user_id' to be an integer");
                 return;
             }
-        };
-        let self_name = match self_info_value.data.get("nickname") {
-            Some(nickname) => nickname.to_string(),
-            None => {
-                error!("Missing 'nickname' in self_info_value data");
-                return;
-            }
-        };
-        info!(
-            "Bot connection successful，Nickname:{},ID:{}",
-            self_name, self_id
-        );
-    }
+        },
+        None => {
+            error!("Missing 'user_id' in self_info_value data");
+            return;
+        }
+    };
+    let self_name = match self_info_value.data.get("nickname") {
+        Some(nickname) => nickname.to_string(),
+        None => {
+            error!("Missing 'nickname' in self_info_value data");
+            return;
+        }
+    };
+    info!(
+        "Bot connection successful，Nickname:{},ID:{}",
+        self_name, self_id
+    );
 }

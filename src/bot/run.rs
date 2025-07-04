@@ -1,5 +1,8 @@
 use super::{Bot, handler::KoviEvent};
-use crate::{PluginBuilder, bot::handler::InternalInternalEvent, types::ApiAndOneshot};
+use crate::{
+    PluginBuilder, bot::handler::InternalInternalEvent,
+    event::lifecycle_event::handler_lifecycle_log_bot_enable, types::ApiAndOneshot,
+};
 use log::error;
 use parking_lot::RwLock;
 use std::{
@@ -36,7 +39,7 @@ impl Bot {
     ///
     /// **注意此函数会阻塞, 直到Bot连接失效，或者有退出信号传入程序**
     pub fn run(self) {
-        let server = self.information.server.clone();
+        let server = self.information.read().server.clone();
 
         let bot = Arc::new(RwLock::new(self));
 
@@ -88,6 +91,8 @@ impl Bot {
                 });
             }
 
+            tokio::spawn(handler_lifecycle_log_bot_enable(api_tx.clone()));
+
             let mut drop_task = None;
             //处理事件，每个事件都会来到这里
             while let Some(event) = event_rx.recv().await {
@@ -121,10 +126,8 @@ impl Bot {
         let main_job_map = bot_.plugins.borrow();
 
         let (host, port) = {
-            (
-                bot_.information.server.host.clone(),
-                bot_.information.server.port,
-            )
+            let info = bot_.information.read();
+            (info.server.host.clone(), info.server.port)
         };
 
         for (name, plugin) in main_job_map.iter() {
