@@ -63,66 +63,73 @@ impl Bot {
         msg: InternalEvent,
         api_tx: mpsc::Sender<ApiAndOneshot>,
     ) {
-        // debug!("{msg_json}");
-
         let bot_read = bot.read();
-
-        let mut type_plugin_map: PluginMap = Default::default();
 
         let info = bot_read.information.clone();
 
-        let plugin_cache = bot_read
-            .plugins
-            .iter()
-            .map(|(name, plugin)| {
-                let name = Arc::new(name.clone());
+        let plugin_iter = bot_read.plugins.iter();
 
+        let plugin_cache = plugin_iter
+            .clone()
+            .map(|(name, plugin)| {
+                let name = Arc::new(name.to_owned());
                 (name.clone(), PluginCache {
                     name,
-                    acc: Arc::new(AccCache::new(
+                    acc: AccCache::new(
                         plugin.access_control,
                         plugin.list_mode,
                         plugin.access_list.clone(),
-                    )),
+                    ),
                     bot_info: info.clone(),
                     enabled: plugin.enabled.subscribe(),
                 })
             })
             .collect::<ahash::HashMap<Arc<String>, PluginCache>>();
 
-        for (name, plugin) in bot_read.plugins.iter() {
-            for listen in &plugin.listen.list {
-                let plugin_map = type_plugin_map
-                    .entry(listen.type_id)
-                    .or_insert_with(|| Default::default());
+        let type_plugin_map = {
+            let mut type_plugin_map: PluginMap = Default::default();
+            for (name, plugin) in plugin_iter {
+                for listen in &plugin.listen.list {
+                    let plugin_map = type_plugin_map
+                        .entry(listen.type_id)
+                        .or_insert_with(|| Default::default());
 
-                let plugin_vec = plugin_map
-                    .plugins
-                    .entry(plugin_cache.get(name).expect("unreachable").name.clone())
-                    .or_insert_with(|| Default::default());
+                    let plugin_vec = plugin_map
+                        .plugins
+                        .entry(plugin_cache[name].name.clone())
+                        .or_insert_with(|| Default::default());
 
-                plugin_vec.push(listen.clone());
+                    plugin_vec.push(listen.clone());
+                }
             }
-        }
+            type_plugin_map
+        };
+
+        drop(bot_read);
 
         let msg_event = MsgEvent::de(&msg, &info.read(), &api_tx).and_then(|e| {
             log_msg_event(&e);
             Some(Arc::new(e))
         });
 
-        let msg = Arc::new(msg);
-        let api_tx = Arc::new(api_tx);
+        struct SharedData {
+            msg: InternalEvent,
+            api_tx: mpsc::Sender<ApiAndOneshot>,
+            plugin_cache: ahash::HashMap<Arc<String>, PluginCache>,
+        }
 
-        let plugin_cache = Arc::new(plugin_cache);
+        let shared_data = Arc::new(SharedData {
+            msg: msg,
+            api_tx: api_tx,
+            plugin_cache: plugin_cache,
+        });
 
         for (type_id, plugin_map) in type_plugin_map {
             tokio::spawn(type_handler(
                 type_id,
                 plugin_map,
                 msg_event.clone(),
-                msg.clone(),
-                api_tx.clone(),
-                plugin_cache.clone(),
+                shared_data.clone(),
             ));
         }
 
@@ -130,9 +137,7 @@ impl Bot {
             type_id: TypeId,
             plugin_map: EventHandler,
             msg_event: Option<Arc<MsgEvent>>,
-            msg: Arc<InternalEvent>,
-            api_tx: Arc<mpsc::Sender<ApiAndOneshot>>,
-            plugin_cache: Arc<ahash::HashMap<Arc<String>, PluginCache>>,
+            shared_data: Arc<SharedData>,
         ) {
             let mut event_cache = if type_id == TypeId::of::<MsgEvent>() {
                 msg_event.clone().map(|arc| arc as Arc<dyn Event>)
@@ -140,8 +145,8 @@ impl Bot {
                 None
             };
 
-            'type_level: for (name, mut plugin_vec) in plugin_map.plugins.into_iter() {
-                let plugin_cache = plugin_cache.get(&name).expect("unreachable");
+            for (name, plugin_vec) in plugin_map.plugins.into_iter() {
+                let plugin_cache = &shared_data.plugin_cache[&name];
 
                 #[cfg(feature = "plugin-access-control")]
                 if let Some(event) = &msg_event {
@@ -151,30 +156,32 @@ impl Bot {
                     }
                 }
 
-                let plugin_vec = plugin_vec.drain(..).collect::<Vec<_>>();
-
                 for listen in plugin_vec {
                     let event = match &event_cache {
                         Some(v) => v.clone(),
                         None => {
-                            let event_opt =
-                                (listen.type_de)(&msg, &plugin_cache.bot_info.read(), &api_tx);
+                            let event_opt = (listen.type_de)(
+                                &shared_data.msg,
+                                &plugin_cache.bot_info.read(),
+                                &shared_data.api_tx,
+                            );
 
                             match event_opt {
-                                Some(event) => event,
-                                None => break 'type_level,
+                                Some(event) => {
+                                    event_cache = Some(event.clone());
+                                    event
+                                }
+                                None => return,
                             }
                         }
                     };
-
-                    event_cache = Some(event.clone());
 
                     let name = name.clone();
                     let enabled = plugin_cache.enabled.clone();
 
                     RT.spawn(async move {
                         tokio::select! {
-                            _ = PLUGIN_NAME.scope(name, Bot::handle_listen(listen, event)) => {}
+                            _ = PLUGIN_NAME.scope(name, handle_listen(listen, event)) => {}
                             _ = monitor_enabled_state(enabled) => {}
                         }
                     });
@@ -210,16 +217,16 @@ impl Bot {
                 text = event.message.to_human_string()
             );
         }
-    }
 
-    async fn handle_listen(listen: Arc<ListenInner>, cache_event: Arc<dyn Event + 'static>) {
-        (*listen.handler)(cache_event).await;
+        async fn handle_listen(listen: Arc<ListenInner>, cache_event: Arc<dyn Event + 'static>) {
+            (*listen.handler)(cache_event).await;
+        }
     }
 }
 
 struct PluginCache {
     name: Arc<String>,
-    acc: Arc<AccCache>,
+    acc: AccCache,
     bot_info: Arc<RwLock<BotInformation>>,
     enabled: watch::Receiver<bool>,
 }
