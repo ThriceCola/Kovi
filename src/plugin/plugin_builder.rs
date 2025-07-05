@@ -95,7 +95,7 @@ impl Listen {
                             handler(downcasted).await;
                         }
                     }),
-                    Err(_) => Box::pin(async {}),
+                    Err(_) => panic!("Type downcasted error!"),
                 }
             }),
         }));
