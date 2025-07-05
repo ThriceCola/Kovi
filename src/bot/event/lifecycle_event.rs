@@ -67,7 +67,7 @@ pub(crate) async fn handler_lifecycle_log_bot_enable(api_tx_: mpsc::Sender<ApiAn
     let receive = match api_rx.await {
         Ok(v) => v,
         Err(e) => {
-            error!("Lifecycle Error, get bot info failed: {}", e);
+            error!("Lifecycle Error, get bot info failed: {e}");
             return;
         }
     };
@@ -75,7 +75,7 @@ pub(crate) async fn handler_lifecycle_log_bot_enable(api_tx_: mpsc::Sender<ApiAn
     let self_info_value = match receive {
         Ok(v) => v,
         Err(e) => {
-            error!("Lifecycle Error, get bot info failed: {}", e);
+            error!("Lifecycle Error, get bot info failed: {e}");
             return;
         }
     };
@@ -101,7 +101,6 @@ pub(crate) async fn handler_lifecycle_log_bot_enable(api_tx_: mpsc::Sender<ApiAn
         }
     };
     info!(
-        "Bot connection successful，Nickname:{},ID:{}",
-        self_name, self_id
+        "Bot connection successful，Nickname:{self_name},ID:{self_id}"
     );
 }

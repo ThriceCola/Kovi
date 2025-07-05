@@ -37,8 +37,7 @@ pub fn set_logger() {
 
     if let Err(e) = init {
         println!(
-            "Kovi init env_logger failed: {}. Very likely you've already started a logger",
-            e
+            "Kovi init env_logger failed: {e}. Very likely you've already started a logger"
         );
     }
 }

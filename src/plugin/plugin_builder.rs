@@ -338,7 +338,7 @@ impl PluginBuilder {
                             let next = match cron.find_next_occurrence(&now, false) {
                                 Ok(v) => v,
                                 Err(e) => {
-                                    error!("{name} cron task error: {}", e);
+                                    error!("{name} cron task error: {e}");
                                     break;
                                 }
                             };

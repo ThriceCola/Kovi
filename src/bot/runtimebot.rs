@@ -55,7 +55,7 @@ pub fn send_api_request(
 
                 tokio::task::spawn(async move {
                     if let Err(e) = api_tx.send(v).await {
-                        error!("The mpsc sender failed to send API request: {}", e);
+                        error!("The mpsc sender failed to send API request: {e}");
                     }
                 });
             }
@@ -79,7 +79,7 @@ pub fn send_api_request_with_forget(api_tx: &mpsc::Sender<ApiAndOneshot>, send_a
 
                 tokio::task::spawn(async move {
                     if let Err(e) = api_tx.send(v).await {
-                        error!("The mpsc sender failed to send API request: {}", e);
+                        error!("The mpsc sender failed to send API request: {e}");
                     }
                 });
             }

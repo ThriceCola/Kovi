@@ -90,14 +90,12 @@ impl Bot {
             let mut type_plugin_map: PluginMap = Default::default();
             for (name, plugin) in plugin_iter {
                 for listen in &plugin.listen.list {
-                    let plugin_map = type_plugin_map
-                        .entry(listen.type_id)
-                        .or_insert_with(|| Default::default());
+                    let plugin_map = type_plugin_map.entry(listen.type_id).or_default();
 
                     let plugin_vec = plugin_map
                         .plugins
                         .entry(plugin_cache[name].name.clone())
-                        .or_insert_with(|| Default::default());
+                        .or_default();
 
                     plugin_vec.push(listen.clone());
                 }
@@ -107,9 +105,9 @@ impl Bot {
 
         drop(bot_read);
 
-        let msg_event = MsgEvent::de(&msg, &info.read(), &api_tx).and_then(|e| {
+        let msg_event = MsgEvent::de(&msg, &info.read(), &api_tx).map(|e| {
             log_msg_event(&e);
-            Some(Arc::new(e))
+            Arc::new(e)
         });
 
         struct SharedData {
@@ -119,9 +117,9 @@ impl Bot {
         }
 
         let shared_data = Arc::new(SharedData {
-            msg: msg,
-            api_tx: api_tx,
-            plugin_cache: plugin_cache,
+            msg,
+            api_tx,
+            plugin_cache,
         });
 
         for (type_id, plugin_map) in type_plugin_map {
@@ -151,7 +149,7 @@ impl Bot {
                 #[cfg(feature = "plugin-access-control")]
                 if let Some(event) = &msg_event {
                     // 判断是否黑白名单
-                    if !is_access(&plugin_cache.acc, &event) {
+                    if !is_access(&plugin_cache.acc, event) {
                         continue;
                     }
                 }

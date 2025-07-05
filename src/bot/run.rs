@@ -111,7 +111,7 @@ impl Bot {
                 match drop_task.await {
                     Ok(_) => {}
                     Err(e) => {
-                        error!("{}", e)
+                        error!("{e}")
                     }
                 };
             }
