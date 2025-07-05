@@ -16,7 +16,7 @@ Kovi is a plugin framework for OneBot V11. If you want to develop OneBot V11 bot
 
 🥁 There’s also a CLI tool to make project development easier.
 
-🛍️ The plugin store provides an excellent Kovi shopping experience, allowing you to easily access packages from plugin developers 📦.
+🛍️ The plugin shop provides an excellent Kovi shopping experience, allowing you to easily access packages from plugin developers 📦.
 
 😍 The project documentation is very simple and easy to understand. Follow it and you’ll be good to go.
 
@@ -24,7 +24,7 @@ Kovi is a plugin framework for OneBot V11. If you want to develop OneBot V11 bot
 
 [Kovi Docs](https://thricecola.github.io/kovi-doc/)
 
-### ↓ The store is here
+### ↓ The shop is here
 
 [Kovi Shop](https://kovi.thricecola.com/start/plugins.html)
 
