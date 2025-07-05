@@ -282,11 +282,10 @@ async fn ws_send_api_read(
             Err(return_value)
         };
 
-        if let Some(tx) = api_tx_cache.1 {
-            if tx.send(return_value.clone()).is_err() {
+        if let Some(tx) = api_tx_cache.1
+            && tx.send(return_value.clone()).is_err() {
                 log::debug!("Return Api to plugin failed, the receiver has been closed")
-            }
-        };
+            };
 
         event_tx
             .send(InternalInternalEvent::OneBotEvent(

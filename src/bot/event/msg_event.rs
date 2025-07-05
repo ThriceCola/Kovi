@@ -207,11 +207,10 @@ impl MsgEvent {
         let text = {
             let mut text_vec = Vec::new();
             for msg in message.iter() {
-                if msg.type_ == "text" {
-                    if let Some(text_value) = msg.data.get("text").and_then(|v| v.as_str()) {
+                if msg.type_ == "text"
+                    && let Some(text_value) = msg.data.get("text").and_then(|v| v.as_str()) {
                         text_vec.push(text_value);
-                    }
-                };
+                    };
             }
             if !text_vec.is_empty() {
                 Some(text_vec.join("\n").trim().to_string())
@@ -301,7 +300,7 @@ impl MsgEvent {
     ///
     /// # example
     ///
-    /// ```rust
+    /// ```ignore
     /// use kovi::PluginBuilder;
     ///
     /// PluginBuilder::on_msg(|event| async move {

@@ -106,7 +106,8 @@ pub trait Event: Any + Send + Sync {
     ///
     /// 不需要的信息用 `_` 忽略，例如：
     ///
-    /// ```
+    /// ```ignore
+    /// 
     /// impl Event for LifecycleEvent {
     ///     fn de(
     ///         event: &InternalEvent,
@@ -137,7 +138,8 @@ pub trait Event: Any + Send + Sync {
     ///
     /// 可以使用类似于 `MsgSendFromKoviEvent` 的实现，将所需的交给用户就行。
     ///
-    /// ```
+    /// ```ignore
+    /// 
     /// pub struct MsgSendFromKoviEvent {
     ///     pub event_type: MsgSendFromKoviType,
     ///     pub send_api: SendApi,

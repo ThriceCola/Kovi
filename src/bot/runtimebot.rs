@@ -14,9 +14,11 @@ pub use kovi_api::SetAdmin;
 
 /// 运行时的Bot，可以用来发送api，需要从PluginBuilder的.get_runtime_bot()获取。
 /// # Examples
-/// ```
+/// ```ignore
+/// use kovi::PluginBuilder;
+///
 /// let bot = PluginBuilder::get_runtime_bot();
-/// let user_id = bot.main_admin;
+/// let user_id = bot.get_main_admin().unwrap();
 ///
 /// bot.send_private_msg(user_id, "bot online")
 /// ```

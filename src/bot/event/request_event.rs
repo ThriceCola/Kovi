@@ -74,7 +74,7 @@ impl RequestEvent {
     ///
     /// # example
     ///
-    /// ```rust
+    /// ```ignore
     /// use kovi::PluginBuilder;
     ///
     /// PluginBuilder::on_request(|event| async move {

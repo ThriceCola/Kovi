@@ -55,16 +55,21 @@ impl Bot {
     /// 构建一个bot实例
     /// # Examples
     /// ```
+    /// use kovi::Bot;
+    /// use kovi::bot::KoviConf;
+    /// use kovi::bot::Server;
+    /// use std::net::{IpAddr, Ipv4Addr};
+    ///
     /// let conf = KoviConf::new(
     ///     123456,
     ///     None,
     ///     Server {
-    ///         host: "127.0.0.1".parse(),
+    ///         host: kovi::bot::Host::IpAddr(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))),
     ///         port: 8081,
-    ///         access_token: "",
+    ///         access_token: "".to_string(),
+    ///         secure: false,
     ///     },
     ///     false,
-    ///     None,
     /// );
     /// let bot = Bot::build(conf);
     /// bot.run()
@@ -275,9 +280,7 @@ impl Bot {
             });
             Ok(self)
         } else {
-            Err(BotError::PluginNotFound(format!(
-                "Plugin {name} not found"
-            )))
+            Err(BotError::PluginNotFound(format!("Plugin {name} not found")))
         }
     }
 
@@ -295,9 +298,7 @@ impl Bot {
             });
             Ok(())
         } else {
-            Err(BotError::PluginNotFound(format!(
-                "Plugin {name} not found"
-            )))
+            Err(BotError::PluginNotFound(format!("Plugin {name} not found")))
         }
     }
 

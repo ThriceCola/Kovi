@@ -129,32 +129,32 @@ impl CQMessage {
         String: From<T>,
         T: Serialize + Display,
     {
-        self.0.push_str(&format!("[CQ:text,text={}]", text));
+        self.0.push_str(&format!("[CQ:text,text={text}]"));
         self
     }
 
     /// 消息加上at
     pub fn add_at(mut self, id: &str) -> Self {
-        self.0.push_str(&format!("[CQ:at,qq={}]", id));
+        self.0.push_str(&format!("[CQ:at,qq={id}]"));
         self
     }
 
     /// 消息加上引用
     pub fn add_reply(mut self, message_id: i32) -> Self {
         self.0
-            .insert_str(0, &format!("[CQ:reply,id={}]", message_id));
+            .insert_str(0, &format!("[CQ:reply,id={message_id}]"));
         self
     }
 
     /// 消息加上表情
     pub fn add_face(mut self, id: i64) -> Self {
-        self.0.push_str(&format!("[CQ:face,id={}]", id));
+        self.0.push_str(&format!("[CQ:face,id={id}]"));
         self
     }
 
     /// 消息加上图片
     pub fn add_image(mut self, file: &str) -> Self {
-        self.0.push_str(&format!("[CQ:image,file={}]", file));
+        self.0.push_str(&format!("[CQ:image,file={file}]"));
         self
     }
 
@@ -180,27 +180,27 @@ impl CQMessage {
         String: From<T>,
         T: Serialize + Display,
     {
-        self.0.push_str(&format!("[CQ:text,text={}]", text));
+        self.0.push_str(&format!("[CQ:text,text={text}]"));
     }
 
     /// 消息加上at
     pub fn push_at(&mut self, id: &str) {
-        self.0.push_str(&format!("[CQ:at,qq={}]", id));
+        self.0.push_str(&format!("[CQ:at,qq={id}]"));
     }
 
     /// 消息加上引用
     pub fn push_reply(&mut self, message_id: i32) {
         self.0
-            .insert_str(0, &format!("[CQ:reply,id={}]", message_id));
+            .insert_str(0, &format!("[CQ:reply,id={message_id}]"));
     }
 
     /// 消息加上表情
     pub fn push_face(&mut self, id: i64) {
-        self.0.push_str(&format!("[CQ:face,id={}]", id));
+        self.0.push_str(&format!("[CQ:face,id={id}]"));
     }
 
     /// 消息加上图片
     pub fn push_image(&mut self, file: &str) {
-        self.0.push_str(&format!("[CQ:image,file={}]", file));
+        self.0.push_str(&format!("[CQ:image,file={file}]"));
     }
 }

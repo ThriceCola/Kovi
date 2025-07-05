@@ -75,6 +75,7 @@ impl Bot {
                 let name = Arc::new(name.to_owned());
                 (name.clone(), PluginCache {
                     name,
+                    #[cfg(feature = "plugin-access-control")]
                     acc: AccCache::new(
                         plugin.access_control,
                         plugin.list_mode,
@@ -224,6 +225,7 @@ impl Bot {
 
 struct PluginCache {
     name: Arc<String>,
+    #[cfg(feature = "plugin-access-control")]
     acc: AccCache,
     bot_info: Arc<RwLock<BotInformation>>,
     enabled: watch::Receiver<bool>,
@@ -235,6 +237,8 @@ struct AccCache {
     pub(crate) list_mode: AccessControlMode,
     pub(crate) access_list: AccessList,
 }
+
+#[cfg(feature = "plugin-access-control")]
 impl AccCache {
     pub fn new(
         access_control: bool,
