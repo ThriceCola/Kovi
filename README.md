@@ -22,7 +22,7 @@ Kovi 是一个 OneBot V11 的插件框架，如果你想用 Rust 来开发 OneBo
 
 ### ↓ 文档在这里
 
-[Kovi Doc](https://thricecola.github.io/kovi-doc/)
+[Kovi Docs](https://thricecola.github.io/kovi-doc/)
 
 ### ↓ 商店在这里
 

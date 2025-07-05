@@ -22,7 +22,7 @@ Kovi is a plugin framework for OneBot V11. If you want to develop OneBot V11 bot
 
 ### ↓ Documentation is here
 
-[Kovi Doc](https://thricecola.github.io/kovi-doc/)
+[Kovi Docs](https://thricecola.github.io/kovi-doc/)
 
 ### ↓ The store is here
 

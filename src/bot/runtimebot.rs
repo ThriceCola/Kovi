@@ -30,7 +30,7 @@ pub struct RuntimeBot {
     pub api_tx: mpsc::Sender<ApiAndOneshot>,
 }
 
-/// 提供给拓展API插件开发者的异步 API 请求发送函数，返回一个 Future ，用于等待在 Kovi 中已经缓存好的API响应。
+/// 提供给拓展 API 插件开发者的异步 API 请求发送函数，返回一个 Future ，用于等待在 Kovi 中已经缓存好的API响应。
 pub fn send_api_request_with_response(
     api_tx: &mpsc::Sender<ApiAndOneshot>,
     send_api: SendApi,
