@@ -220,21 +220,14 @@ impl Message {
 
 impl Default for Message {
     fn default() -> Self {
-        Self::new()
+        Message(Vec::default())
     }
 }
 
 impl Message {
     /// 返回空的 Message
     pub fn new() -> Message {
-        Message(Vec::new())
-    }
-
-    pub fn from<T>(v: T) -> Message
-    where
-        Message: From<T>,
-    {
-        v.into()
+        Default::default()
     }
 
     /// 检查 Message 是否包含任意一项 segment 。返回 bool。
