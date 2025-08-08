@@ -6,7 +6,7 @@ use crate::types::ApiAndOneshot;
 use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
 use http::HeaderValue;
-use log::{debug, error, warn};
+use log::{debug, error, info, warn};
 use parking_lot::{Mutex, RwLock};
 use std::error::Error;
 use std::fmt::Display;
@@ -64,29 +64,44 @@ impl Bot {
         }
     }
 
+    fn api_url(server: &Server, endpoint: &str) -> String {
+        let Server {
+            host,
+            port,
+            secure,
+            path,
+            all_in_one,
+            access_token: _,
+        } = server;
+
+        let subroute = path.trim_end_matches('/');
+        let protocol = if *secure { "wss" } else { "ws" };
+
+        let result = match host {
+            Host::IpAddr(ip) => match ip {
+                IpAddr::V4(ip) => format!("{protocol}://{ip}:{port}{subroute}"),
+                IpAddr::V6(ip) => format!("{protocol}://[{ip}]:{port}{subroute}"),
+            },
+            Host::Domain(domain) => format!("{protocol}://{domain}:{port}{subroute}"),
+        };
+
+        if *all_in_one {
+            result
+        } else {
+            result + endpoint
+        }
+    }
+
     pub(crate) async fn ws_event_connect(
         server: Server,
         event_tx: mpsc::Sender<InternalInternalEvent>,
         connected_tx: oneshot::Sender<Result<(), Box<dyn Error + Send + Sync>>>,
         bot: Arc<RwLock<Bot>>,
     ) {
-        let (host, port, access_token, secure) =
-            (server.host, server.port, server.access_token, server.secure);
-
-        let protocol = if secure { "wss" } else { "ws" };
-        let mut request = match host {
-            Host::IpAddr(ip) => match ip {
-                IpAddr::V4(ip) => format!("{protocol}://{ip}:{port}/event")
-                    .into_client_request()
-                    .expect("The domain name is invalid"),
-                IpAddr::V6(ip) => format!("{protocol}://[{ip}]:{port}/event")
-                    .into_client_request()
-                    .expect("The domain name is invalid"),
-            },
-            Host::Domain(domain) => format!("{protocol}://{domain}:{port}/event")
-                .into_client_request()
-                .expect("The domain name is invalid"),
-        };
+        let mut request = Self::api_url(&server, "/event")
+            .into_client_request()
+            .expect("invalid domain!");
+        let access_token = server.access_token;
 
         //增加Authorization头
         if !access_token.is_empty() {
@@ -96,6 +111,7 @@ impl Bot {
             );
         }
 
+        info!("connecting to: {}", request.uri());
         let (ws_stream, _) = match connect_async(request).await {
             Ok(v) => v,
             Err(e) => {
@@ -123,23 +139,10 @@ impl Bot {
         connected_tx: oneshot::Sender<Result<(), Box<dyn std::error::Error + Send + Sync>>>,
         bot: Arc<RwLock<Bot>>,
     ) {
-        let (host, port, access_token, secure) =
-            (server.host, server.port, server.access_token, server.secure);
-
-        let protocol = if secure { "wss" } else { "ws" };
-        let mut request = match host {
-            Host::IpAddr(ip) => match ip {
-                IpAddr::V4(ip) => format!("{protocol}://{ip}:{port}/api")
-                    .into_client_request()
-                    .expect("The domain name is invalid"),
-                IpAddr::V6(ip) => format!("{protocol}://[{ip}]:{port}/api")
-                    .into_client_request()
-                    .expect("The domain name is invalid"),
-            },
-            Host::Domain(domain) => format!("{protocol}://{domain}:{port}/api")
-                .into_client_request()
-                .expect("The domain name is invalid"),
-        };
+        let mut request = Self::api_url(&server, "/api")
+            .into_client_request()
+            .expect("invalid domain!");
+        let access_token = server.access_token;
 
         //增加Authorization头
         if !access_token.is_empty() {
@@ -149,6 +152,7 @@ impl Bot {
             );
         }
 
+        info!("connecting to: {}", request.uri());
         let (ws_stream, _) = match connect_async(request).await {
             Ok(v) => v,
             Err(e) => {
@@ -283,9 +287,10 @@ async fn ws_send_api_read(
         };
 
         if let Some(tx) = api_tx_cache.1
-            && tx.send(return_value.clone()).is_err() {
-                log::debug!("Return Api to plugin failed, the receiver has been closed")
-            };
+            && tx.send(return_value.clone()).is_err()
+        {
+            log::debug!("Return Api to plugin failed, the receiver has been closed")
+        };
 
         event_tx
             .send(InternalInternalEvent::OneBotEvent(

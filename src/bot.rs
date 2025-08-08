@@ -3,7 +3,6 @@ use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Input, Select};
 use parking_lot::RwLock;
 use plugin_builder::Listen;
-use rand::Rng as _;
 #[cfg(feature = "plugin-access-control")]
 use runtimebot::kovi_api::AccessList;
 use serde::{Deserialize, Serialize};
@@ -431,6 +430,7 @@ pub struct BotInformation {
     pub deputy_admins: HashSet<i64>,
     pub server: Server,
 }
+
 /// server信息
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Server {
@@ -438,14 +438,36 @@ pub struct Server {
     pub port: u16,
     pub access_token: String,
     pub secure: bool,
+    /// path route to ws
+    #[serde(default = "default_path")]
+    pub path: String,
+
+    /// all in one single "/" endpoint
+    #[serde(default)]
+    pub all_in_one: bool,
 }
+
+/// when not specified, use "/" instead.
+fn default_path() -> String {
+    "/".into()
+}
+
 impl Server {
-    pub fn new(host: Host, port: u16, access_token: String, secure: bool) -> Self {
+    pub fn new(
+        host: Host,
+        port: u16,
+        access_token: String,
+        secure: bool,
+        path: String,
+        all_in_one: bool,
+    ) -> Self {
         Server {
             host,
             port,
             access_token,
             secure,
+            path,
+            all_in_one,
         }
     }
 }
@@ -491,13 +513,9 @@ impl SendApi {
     }
 
     pub fn rand_echo() -> String {
-        let mut rng = rand::rng();
-        let mut s = String::new();
-        s.push_str(&chrono::Utc::now().timestamp().to_string());
-        for _ in 0..10 {
-            s.push(rng.random_range('a'..='z'));
-        }
-        s
+        RandomState::new()
+            .hash_one(chrono::Utc::now().timestamp_micros())
+            .to_string()
     }
 }
 
@@ -572,6 +590,12 @@ fn config_file_write_and_return() -> Result<KoviConf, std::io::Error> {
         .interact_text()
         .expect("unreachable");
 
+    let path: String = Input::with_theme(&ColorfulTheme::default())
+        .with_prompt("What is the route path of websocket server?")
+        .default("/".to_string())
+        .interact_text()
+        .expect("unreachable");
+
     // 是否查看更多可选选项
     let more: bool = {
         let items = ["No", "Yes"];
@@ -585,35 +609,33 @@ fn config_file_write_and_return() -> Result<KoviConf, std::io::Error> {
         match select {
             0 => false,
             1 => true,
-            _ => panic!(), //不可能的事情
+            _ => unreachable!(),
         }
     };
 
     let mut secure = false;
+    let mut all_in_one = false;
     if more {
-        // wss https? tls?
-        secure = {
+        fn select_bool(prompt: &str) -> bool {
             let items = vec!["No", "Yes"];
             let select = Select::with_theme(&ColorfulTheme::default())
                 // .with_prompt("Enable secure connection? (HTTPS/WSS)")
-                .with_prompt("Enable secure connection? (WSS)")
+                .with_prompt(prompt)
                 .items(&items)
                 .default(0)
                 .interact()
                 .expect("unreachable");
 
-            match select {
-                0 => false,
-                1 => true,
-                _ => panic!(), //不可能的事情
-            }
-        };
+            select == 1
+        }
+        secure = select_bool("Enable secure connection? (WSS)");
+        all_in_one = select_bool("Use single ws api endpoint?");
     }
 
     let config = KoviConf::new(
         main_admin,
         None,
-        Server::new(host, port, access_token, secure),
+        Server::new(host, port, access_token, secure, path, all_in_one),
         false,
     );
 
@@ -633,11 +655,12 @@ fn config_file_write_and_return() -> Result<KoviConf, std::io::Error> {
     doc["server"] = toml_edit::table();
     doc["server"]["host"] = match &config.server.host {
         Host::IpAddr(ip) => toml_edit::value(ip.to_string()),
-        Host::Domain(domain) => toml_edit::value(domain.clone()),
+        Host::Domain(domain) => toml_edit::value(domain),
     };
     doc["server"]["port"] = toml_edit::value(config.server.port as i64);
-    doc["server"]["access_token"] = toml_edit::value(config.server.access_token.clone());
+    doc["server"]["access_token"] = toml_edit::value(&config.server.access_token);
     doc["server"]["secure"] = toml_edit::value(config.server.secure);
+    doc["server"]["path"] = toml_edit::value(&config.server.path);
 
     let file = fs::File::create("kovi.conf.toml")?;
     let mut writer = std::io::BufWriter::new(file);
@@ -681,7 +704,9 @@ fn build_bot() {
             host: Host::IpAddr("127.0.0.1".parse().unwrap()),
             port: 8081,
             access_token: "".to_string(),
+            path: "/".to_string(),
             secure: false,
+            all_in_one: false,
         },
         false,
     );
