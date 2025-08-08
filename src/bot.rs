@@ -442,6 +442,10 @@ pub struct Server {
     /// path route to ws
     #[serde(default = "default_path")]
     pub path: String,
+
+    /// all in one single "/" endpoint
+    #[serde(default)]
+    pub all_in_one: bool,
 }
 
 /// when not specified, use "/" instead.
@@ -450,13 +454,21 @@ fn default_path() -> String {
 }
 
 impl Server {
-    pub fn new(host: Host, port: u16, access_token: String, secure: bool, path: String) -> Self {
+    pub fn new(
+        host: Host,
+        port: u16,
+        access_token: String,
+        secure: bool,
+        path: String,
+        all_in_one: bool,
+    ) -> Self {
         Server {
             host,
             port,
             access_token,
             secure,
             path,
+            all_in_one,
         }
     }
 }
@@ -607,30 +619,28 @@ fn config_file_write_and_return() -> Result<KoviConf, std::io::Error> {
     };
 
     let mut secure = false;
+    let mut all_in_one = false;
     if more {
-        // wss https? tls?
-        secure = {
+        fn select_bool(prompt: &str) -> bool {
             let items = vec!["No", "Yes"];
             let select = Select::with_theme(&ColorfulTheme::default())
                 // .with_prompt("Enable secure connection? (HTTPS/WSS)")
-                .with_prompt("Enable secure connection? (WSS)")
+                .with_prompt(prompt)
                 .items(&items)
                 .default(0)
                 .interact()
                 .expect("unreachable");
 
-            match select {
-                0 => false,
-                1 => true,
-                _ => panic!(), //不可能的事情
-            }
-        };
+            select == 1
+        }
+        secure = select_bool("Enable secure connection? (WSS)");
+        all_in_one = select_bool("Use single ws api endpoint?");
     }
 
     let config = KoviConf::new(
         main_admin,
         None,
-        Server::new(host, port, access_token, secure, path),
+        Server::new(host, port, access_token, secure, path, all_in_one),
         false,
     );
 
@@ -701,6 +711,7 @@ fn build_bot() {
             access_token: "".to_string(),
             path: "/".to_string(),
             secure: false,
+            all_in_one: false,
         },
         false,
     );

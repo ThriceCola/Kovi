@@ -6,7 +6,7 @@ use crate::types::ApiAndOneshot;
 use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
 use http::HeaderValue;
-use log::{debug, error, warn};
+use log::{debug, error, info, warn};
 use parking_lot::{Mutex, RwLock};
 use std::error::Error;
 use std::fmt::Display;
@@ -64,24 +64,31 @@ impl Bot {
         }
     }
 
-    fn base_url(server: &Server) -> String {
+    fn api_url(server: &Server, endpoint: &str) -> String {
         let Server {
             host,
             port,
             secure,
             path,
+            all_in_one,
             access_token: _,
         } = server;
 
         let subroute = path.trim_end_matches('/');
         let protocol = if *secure { "wss" } else { "ws" };
 
-        match host {
+        let result = match host {
             Host::IpAddr(ip) => match ip {
                 IpAddr::V4(ip) => format!("{protocol}://{ip}:{port}{subroute}"),
                 IpAddr::V6(ip) => format!("{protocol}://[{ip}]:{port}{subroute}"),
             },
             Host::Domain(domain) => format!("{protocol}://{domain}:{port}{subroute}"),
+        };
+
+        if *all_in_one {
+            result
+        } else {
+            result + endpoint
         }
     }
 
@@ -91,7 +98,7 @@ impl Bot {
         connected_tx: oneshot::Sender<Result<(), Box<dyn Error + Send + Sync>>>,
         bot: Arc<RwLock<Bot>>,
     ) {
-        let mut request = (Self::base_url(&server) + "/event")
+        let mut request = Self::api_url(&server, "/event")
             .into_client_request()
             .expect("invalid domain!");
         let access_token = server.access_token;
@@ -104,6 +111,7 @@ impl Bot {
             );
         }
 
+        info!("connecting to: {}", request.uri());
         let (ws_stream, _) = match connect_async(request).await {
             Ok(v) => v,
             Err(e) => {
@@ -131,7 +139,7 @@ impl Bot {
         connected_tx: oneshot::Sender<Result<(), Box<dyn std::error::Error + Send + Sync>>>,
         bot: Arc<RwLock<Bot>>,
     ) {
-        let mut request = (Self::base_url(&server) + "/api")
+        let mut request = Self::api_url(&server, "/api")
             .into_client_request()
             .expect("invalid domain!");
         let access_token = server.access_token;
@@ -144,6 +152,7 @@ impl Bot {
             );
         }
 
+        info!("connecting to: {}", request.uri());
         let (ws_stream, _) = match connect_async(request).await {
             Ok(v) => v,
             Err(e) => {
