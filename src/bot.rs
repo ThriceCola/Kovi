@@ -3,7 +3,6 @@ use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Input, Select};
 use parking_lot::RwLock;
 use plugin_builder::Listen;
-use rand::Rng as _;
 #[cfg(feature = "plugin-access-control")]
 use runtimebot::kovi_api::AccessList;
 use serde::{Deserialize, Serialize};
@@ -514,13 +513,9 @@ impl SendApi {
     }
 
     pub fn rand_echo() -> String {
-        let mut rng = rand::rng();
-        let mut s = String::new();
-        s.push_str(&chrono::Utc::now().timestamp().to_string());
-        for _ in 0..10 {
-            s.push(rng.random_range('a'..='z'));
-        }
-        s
+        RandomState::new()
+            .hash_one(chrono::Utc::now().timestamp_micros())
+            .to_string()
     }
 }
 

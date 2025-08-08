@@ -33,7 +33,6 @@ http = "1"
 toml = "0.9.5"
 toml_edit = "0.23.3"
 croner = "2.2.0"
-rand = "0.9"
 ahash = "0.8"
 parking_lot = "0.12"
 
