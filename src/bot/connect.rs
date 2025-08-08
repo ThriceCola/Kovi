@@ -64,29 +64,37 @@ impl Bot {
         }
     }
 
+    fn base_url(server: &Server) -> String {
+        let Server {
+            host,
+            port,
+            secure,
+            path,
+            access_token: _,
+        } = server;
+
+        let subroute = path.trim_end_matches('/');
+        let protocol = if *secure { "wss" } else { "ws" };
+
+        match host {
+            Host::IpAddr(ip) => match ip {
+                IpAddr::V4(ip) => format!("{protocol}://{ip}:{port}{subroute}"),
+                IpAddr::V6(ip) => format!("{protocol}://[{ip}]:{port}{subroute}"),
+            },
+            Host::Domain(domain) => format!("{protocol}://{domain}:{port}{subroute}"),
+        }
+    }
+
     pub(crate) async fn ws_event_connect(
         server: Server,
         event_tx: mpsc::Sender<InternalInternalEvent>,
         connected_tx: oneshot::Sender<Result<(), Box<dyn Error + Send + Sync>>>,
         bot: Arc<RwLock<Bot>>,
     ) {
-        let (host, port, access_token, secure) =
-            (server.host, server.port, server.access_token, server.secure);
-
-        let protocol = if secure { "wss" } else { "ws" };
-        let mut request = match host {
-            Host::IpAddr(ip) => match ip {
-                IpAddr::V4(ip) => format!("{protocol}://{ip}:{port}/event")
-                    .into_client_request()
-                    .expect("The domain name is invalid"),
-                IpAddr::V6(ip) => format!("{protocol}://[{ip}]:{port}/event")
-                    .into_client_request()
-                    .expect("The domain name is invalid"),
-            },
-            Host::Domain(domain) => format!("{protocol}://{domain}:{port}/event")
-                .into_client_request()
-                .expect("The domain name is invalid"),
-        };
+        let mut request = (Self::base_url(&server) + "/event")
+            .into_client_request()
+            .expect("invalid domain!");
+        let access_token = server.access_token;
 
         //增加Authorization头
         if !access_token.is_empty() {
@@ -123,23 +131,10 @@ impl Bot {
         connected_tx: oneshot::Sender<Result<(), Box<dyn std::error::Error + Send + Sync>>>,
         bot: Arc<RwLock<Bot>>,
     ) {
-        let (host, port, access_token, secure) =
-            (server.host, server.port, server.access_token, server.secure);
-
-        let protocol = if secure { "wss" } else { "ws" };
-        let mut request = match host {
-            Host::IpAddr(ip) => match ip {
-                IpAddr::V4(ip) => format!("{protocol}://{ip}:{port}/api")
-                    .into_client_request()
-                    .expect("The domain name is invalid"),
-                IpAddr::V6(ip) => format!("{protocol}://[{ip}]:{port}/api")
-                    .into_client_request()
-                    .expect("The domain name is invalid"),
-            },
-            Host::Domain(domain) => format!("{protocol}://{domain}:{port}/api")
-                .into_client_request()
-                .expect("The domain name is invalid"),
-        };
+        let mut request = (Self::base_url(&server) + "/api")
+            .into_client_request()
+            .expect("invalid domain!");
+        let access_token = server.access_token;
 
         //增加Authorization头
         if !access_token.is_empty() {
@@ -283,9 +278,10 @@ async fn ws_send_api_read(
         };
 
         if let Some(tx) = api_tx_cache.1
-            && tx.send(return_value.clone()).is_err() {
-                log::debug!("Return Api to plugin failed, the receiver has been closed")
-            };
+            && tx.send(return_value.clone()).is_err()
+        {
+            log::debug!("Return Api to plugin failed, the receiver has been closed")
+        };
 
         event_tx
             .send(InternalInternalEvent::OneBotEvent(
