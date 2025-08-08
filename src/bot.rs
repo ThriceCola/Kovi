@@ -431,6 +431,7 @@ pub struct BotInformation {
     pub deputy_admins: HashSet<i64>,
     pub server: Server,
 }
+
 /// server信息
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Server {
@@ -438,14 +439,24 @@ pub struct Server {
     pub port: u16,
     pub access_token: String,
     pub secure: bool,
+    /// path route to ws
+    #[serde(default = "default_path")]
+    pub path: String,
 }
+
+/// when not specified, use "/" instead.
+fn default_path() -> String {
+    "/".into()
+}
+
 impl Server {
-    pub fn new(host: Host, port: u16, access_token: String, secure: bool) -> Self {
+    pub fn new(host: Host, port: u16, access_token: String, secure: bool, path: String) -> Self {
         Server {
             host,
             port,
             access_token,
             secure,
+            path,
         }
     }
 }
@@ -572,6 +583,12 @@ fn config_file_write_and_return() -> Result<KoviConf, std::io::Error> {
         .interact_text()
         .expect("unreachable");
 
+    let path: String = Input::with_theme(&ColorfulTheme::default())
+        .with_prompt("What is the route path of websocket server?")
+        .default("/".to_string())
+        .interact_text()
+        .expect("unreachable");
+
     // 是否查看更多可选选项
     let more: bool = {
         let items = ["No", "Yes"];
@@ -585,7 +602,7 @@ fn config_file_write_and_return() -> Result<KoviConf, std::io::Error> {
         match select {
             0 => false,
             1 => true,
-            _ => panic!(), //不可能的事情
+            _ => unreachable!(),
         }
     };
 
@@ -613,7 +630,7 @@ fn config_file_write_and_return() -> Result<KoviConf, std::io::Error> {
     let config = KoviConf::new(
         main_admin,
         None,
-        Server::new(host, port, access_token, secure),
+        Server::new(host, port, access_token, secure, path),
         false,
     );
 
@@ -633,11 +650,12 @@ fn config_file_write_and_return() -> Result<KoviConf, std::io::Error> {
     doc["server"] = toml_edit::table();
     doc["server"]["host"] = match &config.server.host {
         Host::IpAddr(ip) => toml_edit::value(ip.to_string()),
-        Host::Domain(domain) => toml_edit::value(domain.clone()),
+        Host::Domain(domain) => toml_edit::value(domain),
     };
     doc["server"]["port"] = toml_edit::value(config.server.port as i64);
-    doc["server"]["access_token"] = toml_edit::value(config.server.access_token.clone());
+    doc["server"]["access_token"] = toml_edit::value(&config.server.access_token);
     doc["server"]["secure"] = toml_edit::value(config.server.secure);
+    doc["server"]["path"] = toml_edit::value(&config.server.path);
 
     let file = fs::File::create("kovi.conf.toml")?;
     let mut writer = std::io::BufWriter::new(file);
@@ -681,6 +699,7 @@ fn build_bot() {
             host: Host::IpAddr("127.0.0.1".parse().unwrap()),
             port: 8081,
             access_token: "".to_string(),
+            path: "/".to_string(),
             secure: false,
         },
         false,
