@@ -1,7 +1,11 @@
 use super::RuntimeBot;
-use crate::{Bot, PluginBuilder, RT, error::BotError, plugin::PluginInfo, types::ApiAndOneshot};
+use crate::error::BotError;
+use crate::plugin::PluginInfo;
+use crate::types::ApiAndOneshot;
+use crate::{Bot, PluginBuilder, RT};
 use parking_lot::RwLock;
-use std::{path::PathBuf, sync::Arc};
+use std::path::PathBuf;
+use std::sync::Arc;
 use tokio::sync::mpsc;
 
 #[cfg(feature = "plugin-access-control")]
@@ -183,7 +187,7 @@ impl RuntimeBot {
             }
             // 添加多个用户到名单
             (SetAccessControlList::Adds(ids), false) => {
-                bot.information.write().deputy_admins.extend(ids);
+                plugin.access_list.friends.extend(ids);
             }
             // 从名单中移除一个用户
             (SetAccessControlList::Remove(id), false) => {
@@ -191,10 +195,7 @@ impl RuntimeBot {
             }
             // 从名单中移除多个用户
             (SetAccessControlList::Removes(ids), false) => {
-                bot.information
-                    .write()
-                    .deputy_admins
-                    .retain(|&x| !ids.contains(&x));
+                plugin.access_list.friends.retain(|&x| !ids.contains(&x));
             }
             // 替换名单为新的用户列表
             (SetAccessControlList::Changes(ids), false) => {
