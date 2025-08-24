@@ -4,7 +4,7 @@ pub mod plugin_set;
 use crate::PluginBuilder;
 use crate::bot::plugin_builder::Listen;
 #[cfg(feature = "plugin-access-control")]
-use crate::bot::runtimebot::kovi_api::AccessList;
+use crate::bot::runtimebot::kovi_api::{AccessList, SetAccessControlList};
 use crate::types::KoviAsyncFn;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -115,6 +115,93 @@ impl Plugin {
                 let _ = task.await;
             }
         })
+    }
+}
+
+/// 黑白名单
+#[cfg(feature = "plugin-access-control")]
+impl Plugin {
+    /// 为某一插件启动名单
+    ///
+    /// # error
+    ///
+    /// 如果寻找不到插件，会返回Err `BotError::PluginNotFound`
+    ///
+    /// 如果此 `RuntimeBot` 实例内部的 `Bot` 中已经不存在，将会返回Err `BotError::RefExpired` 。
+    /// 这通常出现在 `Bot` 已经关闭，可有个不受 Kovi 管理的线程仍然拥有此 `RuntimeBot`。
+    pub fn set_access_control(&mut self, enable: bool) {
+        self.access_control = enable;
+    }
+
+    /// 更改名单为其他模式，插件默认为白名单模式
+    ///
+    /// # error
+    ///
+    /// 如果寻找不到插件，会返回Err `BotError::PluginNotFound`
+    ///
+    /// 如果此 `RuntimeBot` 实例内部的 `Bot` 中已经不存在，将会返回Err `BotError::RefExpired` 。
+    /// 这通常出现在 `Bot` 已经关闭，可有个不受 Kovi 管理的线程仍然拥有此 `RuntimeBot`。
+    pub fn set_access_control_mode(&mut self, access_control_mode: AccessControlMode) {
+        self.list_mode = access_control_mode;
+    }
+
+    /// 为某一插件添加名单
+    ///
+    /// is_group为true时，为群组名单，为false时为好友名单
+    ///
+    /// # error
+    ///
+    /// 如果寻找不到插件，会返回Err `BotError::PluginNotFound`
+    ///
+    /// 如果此 `RuntimeBot` 实例内部的 `Bot` 中已经不存在，将会返回Err `BotError::RefExpired` 。
+    /// 这通常出现在 `Bot` 已经关闭，可有个不受 Kovi 管理的线程仍然拥有此 `RuntimeBot`。
+    pub fn set_plugin_access_control_list(&mut self, is_group: bool, change: SetAccessControlList) {
+        match (change, is_group) {
+            // 添加一个群组到名单
+            (SetAccessControlList::Add(id), true) => {
+                self.access_list.groups.insert(id);
+            }
+            // 添加多个群组到名单
+            (SetAccessControlList::Adds(ids), true) => {
+                for id in ids {
+                    self.access_list.groups.insert(id);
+                }
+            }
+            // 从名单中移除一个群组
+            (SetAccessControlList::Remove(id), true) => {
+                self.access_list.groups.remove(&id);
+            }
+            // 从名单中移除多个群组
+            (SetAccessControlList::Removes(ids), true) => {
+                for id in ids {
+                    self.access_list.groups.remove(&id);
+                }
+            }
+            // 替换名单为新的群组列表
+            (SetAccessControlList::Changes(ids), true) => {
+                self.access_list.groups = ids.into_iter().collect();
+            }
+            // 添加一个用户到名单
+            (SetAccessControlList::Add(id), false) => {
+                self.access_list.friends.insert(id);
+            }
+            // 添加多个用户到名单
+            (SetAccessControlList::Adds(ids), false) => {
+                self.access_list.friends.extend(ids);
+            }
+            // 从名单中移除一个用户
+            (SetAccessControlList::Remove(id), false) => {
+                self.access_list.friends.remove(&id);
+            }
+            // 从名单中移除多个用户
+            (SetAccessControlList::Removes(ids), false) => {
+                self.access_list.friends.retain(|&x| !ids.contains(&x));
+            }
+            // 替换名单为新的用户列表
+            (SetAccessControlList::Changes(ids), false) => {
+                self.access_list.friends = ids.into_iter().collect();
+            }
+        }
     }
 }
 

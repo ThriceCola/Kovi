@@ -90,33 +90,6 @@ impl Bot {
     }
 
     /// 挂载插件。
-    #[deprecated(since = "0.12.0", note = "请使用 `mount_plugin` 代替")]
-    pub fn mount_main<T>(&mut self, name: T, version: T, main: Arc<KoviAsyncFn>)
-    where
-        String: From<T>,
-    {
-        let name = String::from(name);
-        let version = String::from(version);
-        let (tx, _rx) = watch::channel(true);
-        let bot_plugin = Plugin {
-            enable_on_startup: true,
-            enabled: tx,
-            name: name.clone(),
-            version,
-            main,
-            listen: Listen::default(),
-
-            #[cfg(feature = "plugin-access-control")]
-            access_control: false,
-            #[cfg(feature = "plugin-access-control")]
-            list_mode: AccessControlMode::WhiteList,
-            #[cfg(feature = "plugin-access-control")]
-            access_list: AccessList::default(),
-        };
-        self.plugins.insert(name, bot_plugin);
-    }
-
-    /// 挂载插件。
     pub fn mount_plugin(&mut self, plugin: Plugin) {
         self.plugins.insert(plugin.name.clone(), plugin);
     }
