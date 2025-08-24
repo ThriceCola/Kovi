@@ -2,7 +2,6 @@ use ahash::{HashMapExt as _, RandomState};
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Input, Select};
 use parking_lot::RwLock;
-use plugin_builder::Listen;
 #[cfg(feature = "plugin-access-control")]
 use runtimebot::kovi_api::AccessList;
 use serde::{Deserialize, Serialize};
@@ -24,7 +23,6 @@ pub use crate::bot::runtimebot::kovi_api::AccessControlMode;
 use crate::plugin::plugin_set::PluginSet;
 
 use crate::plugin::{Plugin, PluginStatus};
-use crate::types::KoviAsyncFn;
 
 pub(crate) mod connect;
 pub(crate) mod handler;

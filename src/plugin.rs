@@ -4,7 +4,7 @@ pub mod plugin_set;
 use crate::PluginBuilder;
 use crate::bot::plugin_builder::Listen;
 #[cfg(feature = "plugin-access-control")]
-use crate::bot::runtimebot::kovi_api::{AccessList, SetAccessControlList};
+use crate::bot::runtimebot::kovi_api::AccessList;
 use crate::types::KoviAsyncFn;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -121,41 +121,18 @@ impl Plugin {
 /// 黑白名单
 #[cfg(feature = "plugin-access-control")]
 impl Plugin {
-    /// 为某一插件启动名单
-    ///
-    /// # error
-    ///
-    /// 如果寻找不到插件，会返回Err `BotError::PluginNotFound`
-    ///
-    /// 如果此 `RuntimeBot` 实例内部的 `Bot` 中已经不存在，将会返回Err `BotError::RefExpired` 。
-    /// 这通常出现在 `Bot` 已经关闭，可有个不受 Kovi 管理的线程仍然拥有此 `RuntimeBot`。
+    /// 启动名单
     pub fn set_access_control(&mut self, enable: bool) {
         self.access_control = enable;
     }
 
     /// 更改名单为其他模式，插件默认为白名单模式
-    ///
-    /// # error
-    ///
-    /// 如果寻找不到插件，会返回Err `BotError::PluginNotFound`
-    ///
-    /// 如果此 `RuntimeBot` 实例内部的 `Bot` 中已经不存在，将会返回Err `BotError::RefExpired` 。
-    /// 这通常出现在 `Bot` 已经关闭，可有个不受 Kovi 管理的线程仍然拥有此 `RuntimeBot`。
     pub fn set_access_control_mode(&mut self, access_control_mode: AccessControlMode) {
         self.list_mode = access_control_mode;
     }
 
-    /// 为某一插件添加名单
-    ///
-    /// is_group为true时，为群组名单，为false时为好友名单
-    ///
-    /// # error
-    ///
-    /// 如果寻找不到插件，会返回Err `BotError::PluginNotFound`
-    ///
-    /// 如果此 `RuntimeBot` 实例内部的 `Bot` 中已经不存在，将会返回Err `BotError::RefExpired` 。
-    /// 这通常出现在 `Bot` 已经关闭，可有个不受 Kovi 管理的线程仍然拥有此 `RuntimeBot`。
-    pub fn set_plugin_access_control_list(&mut self, is_group: bool, change: SetAccessControlList) {
+    /// 添加名单
+    pub fn set_access_control_list(&mut self, is_group: bool, change: SetAccessControlList) {
         match (change, is_group) {
             // 添加一个群组到名单
             (SetAccessControlList::Add(id), true) => {
@@ -233,4 +210,19 @@ pub struct PluginInfo {
     /// 插件的访问控制列表
     #[cfg(feature = "plugin-access-control")]
     pub access_list: AccessList,
+}
+
+#[cfg(feature = "plugin-access-control")]
+#[derive(Debug, Clone)]
+pub enum SetAccessControlList {
+    /// 增加一个名单
+    Add(i64),
+    /// 增加多个名单
+    Adds(Vec<i64>),
+    /// 移除一个名单
+    Remove(i64),
+    /// 移除多个名单
+    Removes(Vec<i64>),
+    /// 替换名单成此名单
+    Changes(Vec<i64>),
 }

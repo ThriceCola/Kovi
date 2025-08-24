@@ -9,6 +9,9 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 
 #[cfg(feature = "plugin-access-control")]
+pub use crate::plugin::SetAccessControlList;
+
+#[cfg(feature = "plugin-access-control")]
 use ahash::HashSet;
 #[cfg(feature = "plugin-access-control")]
 use serde::{Deserialize, Serialize};
@@ -27,21 +30,6 @@ pub enum SetAdmin {
     /// 移除多个管理员
     Removes(Vec<i64>),
     /// 替换管理员成此管理员
-    Changes(Vec<i64>),
-}
-
-#[cfg(feature = "plugin-access-control")]
-#[derive(Debug, Clone)]
-pub enum SetAccessControlList {
-    /// 增加一个名单
-    Add(i64),
-    /// 增加多个名单
-    Adds(Vec<i64>),
-    /// 移除一个名单
-    Remove(i64),
-    /// 移除多个名单
-    Removes(Vec<i64>),
-    /// 替换名单成此名单
     Changes(Vec<i64>),
 }
 
@@ -89,7 +77,7 @@ impl RuntimeBot {
             None => return Err(BotError::PluginNotFound(plugin_name.to_string())),
         };
 
-        plugin.access_control = enable;
+        plugin.set_access_control(enable);
 
         Ok(())
     }
@@ -121,7 +109,7 @@ impl RuntimeBot {
             None => return Err(BotError::PluginNotFound(plugin_name.to_string())),
         };
 
-        plugin.list_mode = access_control_mode;
+        plugin.set_access_control_mode(access_control_mode);
 
         Ok(())
     }
@@ -156,52 +144,7 @@ impl RuntimeBot {
             None => return Err(BotError::PluginNotFound(plugin_name.to_string())),
         };
 
-        match (change, is_group) {
-            // 添加一个群组到名单
-            (SetAccessControlList::Add(id), true) => {
-                plugin.access_list.groups.insert(id);
-            }
-            // 添加多个群组到名单
-            (SetAccessControlList::Adds(ids), true) => {
-                for id in ids {
-                    plugin.access_list.groups.insert(id);
-                }
-            }
-            // 从名单中移除一个群组
-            (SetAccessControlList::Remove(id), true) => {
-                plugin.access_list.groups.remove(&id);
-            }
-            // 从名单中移除多个群组
-            (SetAccessControlList::Removes(ids), true) => {
-                for id in ids {
-                    plugin.access_list.groups.remove(&id);
-                }
-            }
-            // 替换名单为新的群组列表
-            (SetAccessControlList::Changes(ids), true) => {
-                plugin.access_list.groups = ids.into_iter().collect();
-            }
-            // 添加一个用户到名单
-            (SetAccessControlList::Add(id), false) => {
-                plugin.access_list.friends.insert(id);
-            }
-            // 添加多个用户到名单
-            (SetAccessControlList::Adds(ids), false) => {
-                plugin.access_list.friends.extend(ids);
-            }
-            // 从名单中移除一个用户
-            (SetAccessControlList::Remove(id), false) => {
-                plugin.access_list.friends.remove(&id);
-            }
-            // 从名单中移除多个用户
-            (SetAccessControlList::Removes(ids), false) => {
-                plugin.access_list.friends.retain(|&x| !ids.contains(&x));
-            }
-            // 替换名单为新的用户列表
-            (SetAccessControlList::Changes(ids), false) => {
-                plugin.access_list.friends = ids.into_iter().collect();
-            }
-        }
+        plugin.set_access_control_list(is_group, change);
 
         Ok(())
     }
