@@ -8,11 +8,11 @@ use runtimebot::kovi_api::AccessList;
 use serde::{Deserialize, Serialize};
 use serde_json::{self, Value};
 use std::collections::{HashMap, HashSet};
-use std::env;
 use std::fmt::{Debug, Display};
 use std::io::Write as _;
-use std::net::{Ipv4Addr, Ipv6Addr};
-use std::{fs, net::IpAddr, sync::Arc};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::sync::Arc;
+use std::{env, fs};
 use tokio::sync::mpsc::{self};
 use tokio::sync::watch;
 
@@ -21,6 +21,7 @@ use crate::error::{BotBuildError, BotError};
 use crate::RT;
 #[cfg(feature = "plugin-access-control")]
 pub use crate::bot::runtimebot::kovi_api::AccessControlMode;
+use crate::plugin::plugin_set::PluginSet;
 
 use crate::plugin::{Plugin, PluginStatus};
 use crate::types::KoviAsyncFn;
@@ -55,8 +56,7 @@ impl Bot {
     /// # Examples
     /// ```
     /// use kovi::Bot;
-    /// use kovi::bot::KoviConf;
-    /// use kovi::bot::Server;
+    /// use kovi::bot::{KoviConf, Server};
     /// use std::net::{IpAddr, Ipv4Addr};
     ///
     /// let conf = KoviConf::new(
@@ -119,6 +119,13 @@ impl Bot {
     /// 挂载插件。
     pub fn mount_plugin(&mut self, plugin: Plugin) {
         self.plugins.insert(plugin.name.clone(), plugin);
+    }
+
+    /// 挂载插件。
+    pub fn mount_plugin_set(&mut self, plugin: PluginSet) {
+        for plugin in plugin.set {
+            self.mount_plugin(plugin);
+        }
     }
 
     /// 读取本地Kovi.conf.toml文件

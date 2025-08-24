@@ -1,4 +1,5 @@
 pub mod plugin_builder;
+pub mod plugin_set;
 
 use crate::PluginBuilder;
 use crate::bot::plugin_builder::Listen;
