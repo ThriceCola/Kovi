@@ -2,7 +2,6 @@
 name = "kovi"
 version = "0.12.5"
 authors = ["ThriceCola <thricecola@hotmail.com>"]
-authors = ["ThriceCola <thricecola@hotmail.com>"]
 edition = "2024"
 description = "A OneBot V11 bot plugin framework"
 license = "MPL-2.0"
