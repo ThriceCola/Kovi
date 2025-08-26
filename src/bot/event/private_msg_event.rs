@@ -135,6 +135,54 @@ where
     }
 }
 
+impl PrivateMsgEvent {
+    fn reply_builder<T>(&self, msg: T, auto_escape: bool) -> SendApi
+    where
+        T: Serialize,
+    { RepliableEvent::reply_builder(self, msg, auto_escape) }
+
+    #[cfg(not(feature = "cqstring"))]
+    pub fn reply<T>(&self, msg: T)
+    where
+        Message: From<T>,
+        T: Serialize,
+    { RepliableEvent::reply(self, msg) }
+
+    #[cfg(feature = "cqstring")]
+    pub fn reply<T>(&self, msg: T)
+    where
+        CQMessage: From<T>,
+        T: Serialize,
+    { RepliableEvent::reply(self, msg) }
+
+    #[cfg(not(feature = "cqstring"))]
+    pub fn reply_and_quote<T>(&self, msg: T)
+    where
+        Message: From<T>,
+        T: Serialize,
+    { RepliableEvent::reply_and_quote(self, msg); }
+
+    #[cfg(feature = "cqstring")]
+    fn reply_and_quote<T>(&self, msg: T)
+    where
+        CQMessage: From<T>,
+        T: Serialize,
+    { RepliableEvent::reply_and_quote(self, msg); }
+
+    #[cfg(feature = "cqstring")]
+    fn reply_text<T>(&self, msg: T)
+    where
+        String: From<T>,
+        T: Serialize,
+    { RepliableEvent::reply_text(self, msg) }
+
+    pub fn get_text(&self) -> String { RepliableEvent::get_text(self) }
+
+    pub fn get_sender_nickname(&self) -> String { RepliableEvent::get_sender_nickname(self) }
+
+    pub fn borrow_text(&self) -> Option<&str> { RepliableEvent::borrow_text(self) }
+}
+
 impl RepliableEvent for PrivateMsgEvent {
     fn reply_builder<T>(&self, msg: T, auto_escape: bool) -> SendApi
     where

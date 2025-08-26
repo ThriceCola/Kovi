@@ -155,6 +155,13 @@ pub trait Event: Any + Send + Sync {
         Self: Sized;
 }
 
+/// 满足此 trait 即可判断消息来源
+pub trait UniversalMessage {
+    fn is_group(&self) -> bool;
+
+    fn is_private(&self) -> bool;
+}
+
 /// 满足此 trait 即可被回复
 pub trait RepliableEvent {
     fn reply_builder<T>(&self, msg: T, auto_escape: bool) -> SendApi
