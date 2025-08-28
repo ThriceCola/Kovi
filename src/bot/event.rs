@@ -1,5 +1,5 @@
 use crate::{
-    bot::BotInformation,
+    bot::{BotInformation, message::Message, SendApi},
     types::{ApiAndOneshot, ApiAndRuturn},
 };
 use serde::{Deserialize, Serialize};
@@ -153,6 +153,64 @@ pub trait Event: Any + Send + Sync {
     ) -> Option<Self>
     where
         Self: Sized;
+}
+
+/// 满足此 trait 即可判断消息来源
+pub trait UniversalMessage {
+    fn is_group(&self) -> bool;
+
+    fn is_private(&self) -> bool;
+}
+
+/// 满足此 trait 即可被回复
+pub trait RepliableEvent {
+    fn reply_builder<T>(&self, msg: T, auto_escape: bool) -> SendApi
+    where
+        T: Serialize;
+
+    #[cfg(not(feature = "cqstring"))]
+    /// 快速回复消息
+    fn reply<T>(&self, msg: T)
+    where
+        Message: From<T>,
+        T: Serialize;
+
+    #[cfg(feature = "cqstring")]
+    /// 快速回复消息
+    fn reply<T>(&self, msg: T)
+    where
+        CQMessage: From<T>,
+        T: Serialize;
+
+    #[cfg(not(feature = "cqstring"))]
+    /// 快速回复消息并且**引用**
+    fn reply_and_quote<T>(&self, msg: T)
+    where
+        Message: From<T>,
+        T: Serialize;
+
+    #[cfg(feature = "cqstring")]
+    /// 快速回复消息并且**引用**
+    fn reply_and_quote<T>(&self, msg: T)
+    where
+        CQMessage: From<T>,
+        T: Serialize;
+
+    #[cfg(feature = "cqstring")]
+    /// 快速回复消息，并且**kovi不进行解析，直接发送此字符串**
+    fn reply_text<T>(&self, msg: T)
+    where
+        String: From<T>,
+        T: Serialize;
+
+    /// 便捷获取文本，如果没有文本则会返回空字符串，如果只需要借用，请使用 `borrow_text()`
+    fn get_text(&self) -> String;
+
+    /// 便捷获取发送者昵称，如果无名字，此处为空字符串
+    fn get_sender_nickname(&self) -> String;
+
+    /// 借用 event 的 text，只是做了一下self.text.as_deref()的包装
+    fn borrow_text(&self) -> Option<&str>;
 }
 
 /// 事件

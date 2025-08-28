@@ -2,7 +2,7 @@ use super::{Anonymous, Sender};
 use crate::MsgEvent;
 use crate::bot::BotInformation;
 use crate::bot::event::InternalEvent;
-use crate::bot::plugin_builder::event::{Event, PostType};
+use crate::bot::plugin_builder::event::{Event, PostType, RepliableEvent};
 use crate::bot::runtimebot::{CanSendApi, send_api_request_with_forget};
 use crate::error::EventBuildError;
 use crate::types::ApiAndOneshot;
@@ -142,6 +142,54 @@ impl GroupMsgEvent {
     fn reply_builder<T>(&self, msg: T, auto_escape: bool) -> SendApi
     where
         T: Serialize,
+    { RepliableEvent::reply_builder(self, msg, auto_escape) }
+
+    #[cfg(not(feature = "cqstring"))]
+    pub fn reply<T>(&self, msg: T)
+    where
+        Message: From<T>,
+        T: Serialize,
+    { RepliableEvent::reply(self, msg) }
+
+    #[cfg(feature = "cqstring")]
+    pub fn reply<T>(&self, msg: T)
+    where
+        CQMessage: From<T>,
+        T: Serialize,
+    { RepliableEvent::reply(self, msg) }
+
+    #[cfg(not(feature = "cqstring"))]
+    pub fn reply_and_quote<T>(&self, msg: T)
+    where
+        Message: From<T>,
+        T: Serialize,
+    { RepliableEvent::reply_and_quote(self, msg); }
+
+    #[cfg(feature = "cqstring")]
+    fn reply_and_quote<T>(&self, msg: T)
+    where
+        CQMessage: From<T>,
+        T: Serialize,
+    { RepliableEvent::reply_and_quote(self, msg); }
+
+    #[cfg(feature = "cqstring")]
+    fn reply_text<T>(&self, msg: T)
+    where
+        String: From<T>,
+        T: Serialize,
+    { RepliableEvent::reply_text(self, msg) }
+
+    pub fn get_text(&self) -> String { RepliableEvent::get_text(self) }
+
+    pub fn get_sender_nickname(&self) -> String { RepliableEvent::get_sender_nickname(self) }
+
+    pub fn borrow_text(&self) -> Option<&str> { RepliableEvent::borrow_text(self) }
+}
+
+impl RepliableEvent for GroupMsgEvent {
+    fn reply_builder<T>(&self, msg: T, auto_escape: bool) -> SendApi
+    where
+        T: Serialize,
     {
         SendApi::new(
             "send_msg",
@@ -156,7 +204,7 @@ impl GroupMsgEvent {
 
     #[cfg(not(feature = "cqstring"))]
     /// 快速回复消息
-    pub fn reply<T>(&self, msg: T)
+    fn reply<T>(&self, msg: T)
     where
         Message: From<T>,
         T: Serialize,
@@ -175,7 +223,7 @@ impl GroupMsgEvent {
 
     #[cfg(feature = "cqstring")]
     /// 快速回复消息
-    pub fn reply<T>(&self, msg: T)
+    fn reply<T>(&self, msg: T)
     where
         CQMessage: From<T>,
         T: Serialize,
@@ -193,7 +241,7 @@ impl GroupMsgEvent {
 
     #[cfg(not(feature = "cqstring"))]
     /// 快速回复消息并且**引用**
-    pub fn reply_and_quote<T>(&self, msg: T)
+    fn reply_and_quote<T>(&self, msg: T)
     where
         Message: From<T>,
         T: Serialize,
@@ -212,7 +260,7 @@ impl GroupMsgEvent {
 
     #[cfg(feature = "cqstring")]
     /// 快速回复消息并且**引用**
-    pub fn reply_and_quote<T>(&self, msg: T)
+    fn reply_and_quote<T>(&self, msg: T)
     where
         CQMessage: From<T>,
         T: Serialize,
@@ -230,7 +278,7 @@ impl GroupMsgEvent {
 
     #[cfg(feature = "cqstring")]
     /// 快速回复消息，并且**kovi不进行解析，直接发送此字符串**
-    pub fn reply_text<T>(&self, msg: T)
+    fn reply_text<T>(&self, msg: T)
     where
         String: From<T>,
         T: Serialize,
@@ -246,7 +294,7 @@ impl GroupMsgEvent {
     }
 
     /// 便捷获取文本，如果没有文本则会返回空字符串，如果只需要借用，请使用 `borrow_text()`
-    pub fn get_text(&self) -> String {
+    fn get_text(&self) -> String {
         match self.text.clone() {
             Some(v) => v,
             None => "".to_string(),
@@ -254,7 +302,7 @@ impl GroupMsgEvent {
     }
 
     /// 便捷获取发送者昵称，如果无名字，此处为空字符串
-    pub fn get_sender_nickname(&self) -> String {
+    fn get_sender_nickname(&self) -> String {
         if let Some(v) = &self.sender.nickname {
             v.clone()
         } else {
@@ -263,7 +311,7 @@ impl GroupMsgEvent {
     }
 
     /// 借用 event 的 text，只是做了一下self.text.as_deref()的包装
-    pub fn borrow_text(&self) -> Option<&str> {
+    fn borrow_text(&self) -> Option<&str> {
         self.text.as_deref()
     }
 }
