@@ -27,7 +27,6 @@ macro_rules! plugins {
             let mut set = kovi::plugin::plugin_set::PluginSet::new();
             $(
                 let plugin = $plugin::__kovi_build_plugin();
-                kovi::log::info!("Mounting plugin: {}", &plugin.name);
                 set.push(plugin);
             )*
             set
