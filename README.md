@@ -12,7 +12,7 @@ Kovi 是一个 OneBot V11 的插件框架，如果你想用 Rust 来开发 OneBo
 
 🎯 目标是 Rust 最简单 OneBot 框架！复杂的 Rust 简化写法？ Kovi 已经尽力了。
 
-🤔 让我数数，文档里面的快速上手，居然15行代码就可以实现一个最简插件并且运行。
+🤔 让我数数，文档里面的快速上手，居然9行代码就可以实现一个最简插件。
 
 🥁 还有 CLI 工具，方便项目开发。
 
@@ -22,7 +22,7 @@ Kovi 是一个 OneBot V11 的插件框架，如果你想用 Rust 来开发 OneBo
 
 ### ↓ 文档在这里
 
-[Kovi Doc](https://thricecola.github.io/kovi-doc/)
+[Kovi Docs](https://thricecola.github.io/kovi-doc/)
 
 ### ↓ 商店在这里
 

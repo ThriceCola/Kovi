@@ -51,7 +51,7 @@ impl PartialEq for Segment {
 ///     ]
 /// )).unwrap();
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Message(Vec<Segment>);
 
 impl From<Vec<Segment>> for Message {
@@ -195,11 +195,10 @@ impl Message {
         for item in self.iter() {
             match item.type_.as_str() {
                 "text" => {
-                    if let Some(text_data) = item.data.get("text") {
-                        if let Some(text_str) = text_data.as_str() {
+                    if let Some(text_data) = item.data.get("text")
+                        && let Some(text_str) = text_data.as_str() {
                             result.push_str(text_str);
                         }
-                    }
                 }
                 _ => {
                     result.push_str(&format!("[{}]", item.type_));
@@ -218,23 +217,10 @@ impl Message {
     }
 }
 
-impl Default for Message {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Message {
     /// 返回空的 Message
     pub fn new() -> Message {
-        Message(Vec::new())
-    }
-
-    pub fn from<T>(v: T) -> Message
-    where
-        Message: From<T>,
-    {
-        v.into()
+        Default::default()
     }
 
     /// 检查 Message 是否包含任意一项 segment 。返回 bool。
@@ -266,6 +252,7 @@ impl Message {
     ///
     /// # Examples
     /// ```
+    /// use kovi::bot::message::Segment;
     /// use kovi::bot::message::Message;
     /// use serde_json::{json, Value};
     ///
@@ -286,18 +273,8 @@ impl Message {
     ///     ]
     /// )).unwrap();
     ///
-    /// let text_value:Value = json!({
-    ///             "type":"text",
-    ///             "data":{
-    ///                 "text":"Some msg"
-    ///             }
-    ///         });
-    /// let face_value:Value = json!({
-    ///             "type":"face",
-    ///             "data":{
-    ///                 "id":"0"
-    ///             }
-    ///         });
+    /// let text_value: Segment = Segment::new("text", json!({"text": "Some msg"}));
+    /// let face_value: Segment = Segment::new("face", json!({"id": "0"}));
     /// assert_eq!(msg.get("text")[0], text_value);
     /// assert_eq!(msg.get("face")[0], face_value);
     pub fn get(&self, s: &str) -> Vec<Segment> {
@@ -512,7 +489,7 @@ pub(crate) fn cq_to_arr_inner(message: &str) -> Vec<serde_json::Value> {
 #[cfg(feature = "cqstring")]
 pub fn cq_to_arr(message: CQMessage) -> Message {
     let json_arr = cq_to_arr_inner(&message.0);
-    Message::from_vec_segment_value(json_arr).unwrap()
+    Message::from_vec_segment_value(json_arr).expect("I don't want to maintain cqstring, So this has something panic, The reason for this error is that there is an issue with the cqstring you passed in")
 }
 
 #[cfg(feature = "cqstring")]
@@ -521,22 +498,26 @@ fn parse_cq_code(item: &Segment) -> String {
 
     match item.type_.as_str() {
         "text" => {
-            if let Some(text_data) = item.data.get("text") {
-                if let Some(text_str) = text_data.as_str() {
+            if let Some(text_data) = item.data.get("text")
+                && let Some(text_str) = text_data.as_str() {
                     result.push_str(text_str);
                 }
-            }
         }
         _ => {
             let mut params = Vec::new();
-            for (key, value) in item.data.as_object().unwrap().iter() {
+            for (key, value) in item
+                .data
+                .as_object()
+                .expect("I don't want to maintain cqstring, So this has something panic, The reason for this error is that the data part of the segment you passed in is not an Object structure")
+                .iter()
+            {
                 if let Some(value_str) = value.as_str() {
-                    params.push(format!("{}={}", key, value_str));
+                    params.push(format!("{key}={value_str}"));
                 }
             }
             if !params.is_empty() {
                 let params_str = params.join(",");
-                result.push_str(&format!("[CQ:{},{}]", item.type_, params_str));
+                result.push_str(&format!("[CQ:{},{params_str}]", item.type_));
             } else {
                 result.push_str(&format!("[CQ:{}]", item.type_));
             }
@@ -561,7 +542,7 @@ pub fn arr_to_cq(message: Message) -> CQMessage {
 fn __cq_to_arr() {
     let cq = "左边的消息[CQ:face,id=178]看看我刚拍的照片[CQ:image,file=123.jpg]右边的消息";
     let msg = cq_to_arr(cq.into());
-    println!("{:?}", msg)
+    println!("{msg:?}")
 }
 
 #[test]

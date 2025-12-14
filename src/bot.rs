@@ -1,6 +1,7 @@
 use ahash::{HashMapExt as _, RandomState};
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Input, Select};
+use parking_lot::RwLock;
 use plugin_builder::Listen;
 use rand::Rng as _;
 #[cfg(feature = "plugin-access-control")]
@@ -38,7 +39,7 @@ pub mod runtimebot;
 /// bot结构体
 #[derive(Clone)]
 pub struct Bot {
-    pub information: BotInformation,
+    pub information: Arc<RwLock<BotInformation>>,
     pub(crate) plugins: HashMap<String, Plugin, RandomState>,
     pub(crate) run_abort: Vec<tokio::task::AbortHandle>,
 }
@@ -54,16 +55,21 @@ impl Bot {
     /// 构建一个bot实例
     /// # Examples
     /// ```
+    /// use kovi::Bot;
+    /// use kovi::bot::KoviConf;
+    /// use kovi::bot::Server;
+    /// use std::net::{IpAddr, Ipv4Addr};
+    ///
     /// let conf = KoviConf::new(
     ///     123456,
     ///     None,
     ///     Server {
-    ///         host: "127.0.0.1".parse(),
+    ///         host: kovi::bot::Host::IpAddr(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))),
     ///         port: 8081,
-    ///         access_token: "",
+    ///         access_token: "".to_string(),
+    ///         secure: false,
     ///     },
     ///     false,
-    ///     None,
     /// );
     /// let bot = Bot::build(conf);
     /// bot.run()
@@ -74,11 +80,11 @@ impl Bot {
     {
         let conf = conf.as_ref();
         Bot {
-            information: BotInformation {
+            information: Arc::new(RwLock::new(BotInformation {
                 main_admin: conf.config.main_admin,
                 deputy_admins: conf.config.admins.iter().cloned().collect(),
                 server: conf.server.clone(),
-            },
+            })),
             plugins: HashMap::<_, _, RandomState>::new(),
             run_abort: Vec::new(),
         }
@@ -126,7 +132,7 @@ impl Bot {
                 Ok(v) => match toml::from_str(&v) {
                     Ok(conf) => conf,
                     Err(err) => {
-                        eprintln!("Configuration file parsing error: {}", err);
+                        eprintln!("Configuration file parsing error: {err}");
                         config_file_write_and_return()
                             .map_err(|e| BotBuildError::FileCreateError(e.to_string()))?
                     }
@@ -168,14 +174,14 @@ impl Bot {
                 v
             }
             Err(e) => {
-                log::debug!("Failed to read file: {}", e);
+                log::debug!("Failed to read file: {e}");
                 return self;
             }
         };
         let mut plugin_status_map: HashMap<String, PluginStatus> = match toml::from_str(&content) {
             Ok(v) => v,
             Err(e) => {
-                log::debug!("Failed to parse toml: {}", e);
+                log::debug!("Failed to parse toml: {e}");
                 return self;
             }
         };
@@ -211,14 +217,14 @@ impl Bot {
                 v
             }
             Err(e) => {
-                log::debug!("Failed to read file: {}", e);
+                log::debug!("Failed to read file: {e}");
                 return;
             }
         };
         let mut plugin_status_map: HashMap<String, PluginStatus> = match toml::from_str(&content) {
             Ok(v) => v,
             Err(e) => {
-                log::debug!("Failed to parse toml: {}", e);
+                log::debug!("Failed to parse toml: {e}");
                 return;
             }
         };
@@ -274,10 +280,7 @@ impl Bot {
             });
             Ok(self)
         } else {
-            Err(BotError::PluginNotFound(format!(
-                "Plugin {} not found",
-                name
-            )))
+            Err(BotError::PluginNotFound(format!("Plugin {name} not found")))
         }
     }
 
@@ -295,10 +298,7 @@ impl Bot {
             });
             Ok(())
         } else {
-            Err(BotError::PluginNotFound(format!(
-                "Plugin {} not found",
-                name
-            )))
+            Err(BotError::PluginNotFound(format!("Plugin {name} not found")))
         }
     }
 
@@ -324,12 +324,12 @@ impl Bot {
             let serialized = match toml::to_string(&plugin_status) {
                 Ok(s) => s,
                 Err(e) => {
-                    log::error!("Failed to serialize plugin status: {}", e);
+                    log::error!("Failed to serialize plugin status: {e}");
                     return;
                 }
             };
             if let Err(e) = fs::write(_file_path, serialized) {
-                log::error!("Failed to write plugin status to file: {}", e);
+                log::error!("Failed to write plugin status to file: {e}");
             }
         }
 
@@ -347,11 +347,15 @@ impl Bot {
                 doc["config"] = toml_edit::table();
             }
 
+            let (main_admin, deputy_admins) = {
+                let info = self.information.read();
+                (info.main_admin, info.deputy_admins.clone())
+            };
+
             // 更新 "config" 中的 admin 信息
-            doc["config"]["main_admin"] = toml_edit::value(self.information.main_admin);
+            doc["config"]["main_admin"] = toml_edit::value(main_admin);
             doc["config"]["admins"] = toml_edit::Item::Value(toml_edit::Value::Array(
-                self.information
-                    .deputy_admins
+                deputy_admins
                     .iter()
                     .map(|&x| toml_edit::Value::from(x))
                     .collect(),
@@ -361,11 +365,11 @@ impl Bot {
                 Ok(file) => {
                     let mut writer = std::io::BufWriter::new(file);
                     if let Err(e) = writer.write_all(doc.to_string().as_bytes()) {
-                        log::error!("Failed to write to file: {}", e);
+                        log::error!("Failed to write to file: {e}");
                     }
                 }
                 Err(e) => {
-                    log::error!("Failed to create file: {}", e);
+                    log::error!("Failed to create file: {e}");
                 }
             }
         }
@@ -455,8 +459,8 @@ pub enum Host {
 impl Display for Host {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Host::IpAddr(ip) => write!(f, "{}", ip),
-            Host::Domain(domain) => write!(f, "{}", domain),
+            Host::IpAddr(ip) => write!(f, "{ip}"),
+            Host::Domain(domain) => write!(f, "{domain}"),
         }
     }
 }

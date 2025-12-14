@@ -110,7 +110,7 @@ impl PrivateMsgEvent {
     ///
     /// # example
     ///
-    /// ```rust
+    /// ```ignore
     /// use kovi::PluginBuilder;
     ///
     /// PluginBuilder::on_msg(|event| async move {

@@ -29,7 +29,7 @@ macro_rules! assert_right_place {
     };
 }
 
-trait DowncastArc: Any {
+pub(crate) trait DowncastArc: Any {
     fn downcast_arc<T: Any>(self: Arc<Self>) -> Result<Arc<T>, Arc<Self>>;
 }
 impl<T: ?Sized + Any> DowncastArc for T {
@@ -93,7 +93,7 @@ impl Listen {
                             handler(downcasted).await;
                         }
                     }),
-                    Err(_) => Box::pin(async {}),
+                    Err(_) => panic!("Type downcasted error!"),
                 }
             }),
         }));
@@ -324,7 +324,7 @@ impl PluginBuilder {
                             let next = match cron.find_next_occurrence(&now, false) {
                                 Ok(v) => v,
                                 Err(e) => {
-                                    error!("{name} cron task error: {}", e);
+                                    error!("{name} cron task error: {e}");
                                     break;
                                 }
                             };

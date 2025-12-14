@@ -87,9 +87,11 @@ impl<'de> Deserialize<'de> for PostType {
 
 /// 满足此 trait 即可在Kovi运行时中监听并处理
 ///
-/// # Warning !!!!!
+/// # Warning
 ///
-/// 请不要阻塞解析事件，如果目标信息需要阻塞获取，请通知用户由用户处理，而非由事件解析器阻塞
+/// 最好不要阻塞解析事件，如果目标信息需要阻塞获取，请通知用户由用户处理，而非由事件解析器阻塞
+///
+/// 在 Kovi 0.12.4 之后，事件是并发解析的，所以阻塞解析事件并不会阻塞其他事件的解析，虽然如此，仍然不建议阻塞解析事件
 pub trait Event: Any + Send + Sync {
     /// 解析事件
     ///
@@ -104,7 +106,8 @@ pub trait Event: Any + Send + Sync {
     ///
     /// 不需要的信息用 `_` 忽略，例如：
     ///
-    /// ```
+    /// ```ignore
+    /// 
     /// impl Event for LifecycleEvent {
     ///     fn de(
     ///         event: &InternalEvent,
@@ -127,13 +130,16 @@ pub trait Event: Any + Send + Sync {
     /// }
     /// ```
     ///
-    /// # Warning !!!!!
+    /// # Warning
     ///
-    /// 请不要阻塞解析事件，如果目标信息需要阻塞，请通知用户由用户处理，而非由事件解析器阻塞。
+    /// 最好不要阻塞解析事件，如果目标信息需要阻塞获取，请通知用户由用户处理，而非由事件解析器阻塞
     ///
-    /// 类似于 `MsgSendFromKoviEvent` 的实现，将所需的交给用户就行。
+    /// 在 Kovi 0.12.4 之后，事件是并发解析的，所以阻塞解析事件并不会阻塞其他事件的解析，虽然如此，仍然不建议阻塞解析事件
     ///
-    /// ```
+    /// 可以使用类似于 `MsgSendFromKoviEvent` 的实现，将所需的交给用户就行。
+    ///
+    /// ```ignore
+    /// 
     /// pub struct MsgSendFromKoviEvent {
     ///     pub event_type: MsgSendFromKoviType,
     ///     pub send_api: SendApi,

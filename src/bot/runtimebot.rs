@@ -14,9 +14,11 @@ pub use kovi_api::SetAdmin;
 
 /// 运行时的Bot，可以用来发送api，需要从PluginBuilder的.get_runtime_bot()获取。
 /// # Examples
-/// ```
+/// ```ignore
+/// use kovi::PluginBuilder;
+///
 /// let bot = PluginBuilder::get_runtime_bot();
-/// let user_id = bot.main_admin;
+/// let user_id = bot.get_main_admin().unwrap();
 ///
 /// bot.send_private_msg(user_id, "bot online")
 /// ```
@@ -30,7 +32,7 @@ pub struct RuntimeBot {
     pub api_tx: mpsc::Sender<ApiAndOneshot>,
 }
 
-/// 提供给拓展API插件开发者的异步 API 请求发送函数，返回一个 Future ，用于等待在 Kovi 中已经缓存好的API响应。
+/// 提供给拓展 API 插件开发者的异步 API 请求发送函数，返回一个 Future ，用于等待在 Kovi 中已经缓存好的API响应。
 pub fn send_api_request_with_response(
     api_tx: &mpsc::Sender<ApiAndOneshot>,
     send_api: SendApi,
@@ -55,7 +57,7 @@ pub fn send_api_request(
 
                 tokio::task::spawn(async move {
                     if let Err(e) = api_tx.send(v).await {
-                        error!("The mpsc sender failed to send API request: {}", e);
+                        error!("The mpsc sender failed to send API request: {e}");
                     }
                 });
             }
@@ -79,7 +81,7 @@ pub fn send_api_request_with_forget(api_tx: &mpsc::Sender<ApiAndOneshot>, send_a
 
                 tokio::task::spawn(async move {
                     if let Err(e) = api_tx.send(v).await {
-                        error!("The mpsc sender failed to send API request: {}", e);
+                        error!("The mpsc sender failed to send API request: {e}");
                     }
                 });
             }

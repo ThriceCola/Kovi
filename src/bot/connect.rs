@@ -76,14 +76,14 @@ impl Bot {
         let protocol = if secure { "wss" } else { "ws" };
         let mut request = match host {
             Host::IpAddr(ip) => match ip {
-                IpAddr::V4(ip) => format!("{}://{}:{}/event", protocol, ip, port)
+                IpAddr::V4(ip) => format!("{protocol}://{ip}:{port}/event")
                     .into_client_request()
                     .expect("The domain name is invalid"),
-                IpAddr::V6(ip) => format!("{}://[{}]:{}/event", protocol, ip, port)
+                IpAddr::V6(ip) => format!("{protocol}://[{ip}]:{port}/event")
                     .into_client_request()
                     .expect("The domain name is invalid"),
             },
-            Host::Domain(domain) => format!("{}://{}:{}/event", protocol, domain, port)
+            Host::Domain(domain) => format!("{protocol}://{domain}:{port}/event")
                 .into_client_request()
                 .expect("The domain name is invalid"),
         };
@@ -92,7 +92,7 @@ impl Bot {
         if !access_token.is_empty() {
             request.headers_mut().insert(
                 "Authorization",
-                HeaderValue::from_str(&format!("Bearer {}", access_token)).expect("unreachable"),
+                HeaderValue::from_str(&format!("Bearer {access_token}")).expect("unreachable"),
             );
         }
 
@@ -129,14 +129,14 @@ impl Bot {
         let protocol = if secure { "wss" } else { "ws" };
         let mut request = match host {
             Host::IpAddr(ip) => match ip {
-                IpAddr::V4(ip) => format!("{}://{}:{}/api", protocol, ip, port)
+                IpAddr::V4(ip) => format!("{protocol}://{ip}:{port}/api")
                     .into_client_request()
                     .expect("The domain name is invalid"),
-                IpAddr::V6(ip) => format!("{}://[{}]:{}/api", protocol, ip, port)
+                IpAddr::V6(ip) => format!("{protocol}://[{ip}]:{port}/api")
                     .into_client_request()
                     .expect("The domain name is invalid"),
             },
-            Host::Domain(domain) => format!("{}://{}:{}/api", protocol, domain, port)
+            Host::Domain(domain) => format!("{protocol}://{domain}:{port}/api")
                 .into_client_request()
                 .expect("The domain name is invalid"),
         };
@@ -145,7 +145,7 @@ impl Bot {
         if !access_token.is_empty() {
             request.headers_mut().insert(
                 "Authorization",
-                HeaderValue::from_str(&format!("Bearer {}", access_token)).expect("unreachable"),
+                HeaderValue::from_str(&format!("Bearer {access_token}")).expect("unreachable"),
             );
         }
 
@@ -251,7 +251,7 @@ async fn ws_send_api_read(
 
         let text = msg.to_text().expect("unreachable");
 
-        debug!("{}", text);
+        debug!("{text}");
 
         let return_value: ApiReturn = match serde_json::from_str(text) {
             Ok(v) => v,
@@ -282,11 +282,10 @@ async fn ws_send_api_read(
             Err(return_value)
         };
 
-        if let Some(tx) = api_tx_cache.1 {
-            if tx.send(return_value.clone()).is_err() {
+        if let Some(tx) = api_tx_cache.1
+            && tx.send(return_value.clone()).is_err() {
                 log::debug!("Return Api to plugin failed, the receiver has been closed")
-            }
-        };
+            };
 
         event_tx
             .send(InternalInternalEvent::OneBotEvent(
@@ -305,7 +304,7 @@ async fn ws_send_api_write(
 ) {
     while let Some((api_msg, return_api_tx)) = api_rx.recv().await {
         let event_tx = event_tx.clone();
-        debug!("{}", api_msg);
+        debug!("{api_msg}");
 
         api_tx_map
             .lock()

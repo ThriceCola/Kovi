@@ -12,19 +12,19 @@ Kovi is a plugin framework for OneBot V11. If you want to develop OneBot V11 bot
 
 🎯 The goal is to create the simplest OneBot framework in Rust! Simplifying complex Rust syntax? Kovi has done its best.
 
-🤔 Let me count, the quick start in the documentation only requires 15 lines of code to create and run the simplest plugin.
+🤔 Let me count, the quick start in the documentation only requires 9 lines of code to create the simplest plugin.
 
 🥁 There’s also a CLI tool to make project development easier.
 
-🛍️ The plugin store provides an excellent Kovi shopping experience, allowing you to easily access packages from plugin developers 📦.
+🛍️ The plugin shop provides an excellent Kovi shopping experience, allowing you to easily access packages from plugin developers 📦.
 
 😍 The project documentation is very simple and easy to understand. Follow it and you’ll be good to go.
 
 ### ↓ Documentation is here
 
-[Kovi Doc](https://thricecola.github.io/kovi-doc/)
+[Kovi Docs](https://thricecola.github.io/kovi-doc/)
 
-### ↓ The store is here
+### ↓ The shop is here
 
 [Kovi Shop](https://kovi.thricecola.com/start/plugins.html)
 

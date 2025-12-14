@@ -48,7 +48,7 @@ impl TryFrom<String> for MsgSendFromKoviType {
             "send_forward_msg" => Ok(MsgSendFromKoviType::SendForwardMsg),
             "send_private_forward_msg" => Ok(MsgSendFromKoviType::SendPrivateForwardMsg),
             "send_group_forward_msg" => Ok(MsgSendFromKoviType::SendGroupForwardMsg),
-            _ => Err(format!("Invalid MsgSendFromKoviType: {}", value)),
+            _ => Err(format!("Invalid MsgSendFromKoviType: {value}")),
         }
     }
 }
@@ -63,7 +63,7 @@ impl TryFrom<&str> for MsgSendFromKoviType {
             "send_forward_msg" => Ok(MsgSendFromKoviType::SendForwardMsg),
             "send_private_forward_msg" => Ok(MsgSendFromKoviType::SendPrivateForwardMsg),
             "send_group_forward_msg" => Ok(MsgSendFromKoviType::SendGroupForwardMsg),
-            _ => Err(format!("Invalid MsgSendFromKoviType: {}", value)),
+            _ => Err(format!("Invalid MsgSendFromKoviType: {value}")),
         }
     }
 }
@@ -78,7 +78,7 @@ impl TryFrom<&String> for MsgSendFromKoviType {
             "send_forward_msg" => Ok(MsgSendFromKoviType::SendForwardMsg),
             "send_private_forward_msg" => Ok(MsgSendFromKoviType::SendPrivateForwardMsg),
             "send_group_forward_msg" => Ok(MsgSendFromKoviType::SendGroupForwardMsg),
-            _ => Err(format!("Invalid MsgSendFromKoviType: {}", value)),
+            _ => Err(format!("Invalid MsgSendFromKoviType: {value}")),
         }
     }
 }

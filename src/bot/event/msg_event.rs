@@ -1,15 +1,12 @@
 use super::{Anonymous, Sender};
-use crate::bot::BotInformation;
+use crate::Message;
 use crate::bot::event::InternalEvent;
 use crate::bot::message::cq_to_arr_inner;
-use crate::bot::plugin_builder::event::{Event, PostType};
+use crate::bot::plugin_builder::event::{Event, PostType, Sex};
 use crate::bot::runtimebot::{CanSendApi, send_api_request_with_forget};
+use crate::bot::{BotInformation, SendApi};
 use crate::error::EventBuildError;
 use crate::types::ApiAndOneshot;
-use crate::{
-    Message,
-    bot::{SendApi, plugin_builder::event::Sex},
-};
 use log::{debug, info};
 use serde::Serialize;
 use serde_json::value::Index;
@@ -79,15 +76,15 @@ impl Event for MsgEvent {
 impl MsgEvent {
     pub(crate) fn new(
         api_tx: mpsc::Sender<ApiAndOneshot>,
-        mut temp: Value,
+        temp: Value,
     ) -> Result<MsgEvent, EventBuildError> {
-        let temp_object = temp.as_object_mut().ok_or(EventBuildError::ParseError(
+        let temp_object = temp.as_object().ok_or(EventBuildError::ParseError(
             "Invalid JSON object".to_string(),
         ))?;
 
         let temp_sender = temp_object
-            .get_mut("sender")
-            .and_then(|v| v.as_object_mut())
+            .get("sender")
+            .and_then(|v| v.as_object())
             .ok_or(EventBuildError::ParseError(
                 "Invalid sender object".to_string(),
             ))?;
@@ -95,18 +92,18 @@ impl MsgEvent {
         let sender = {
             Sender {
                 user_id: temp_sender
-                    .get_mut("user_id")
+                    .get("user_id")
                     .and_then(|v| v.as_i64())
                     .ok_or(EventBuildError::ParseError("Invalid user_id".to_string()))?,
-                nickname: temp_sender.get_mut("nickname").and_then(|v| {
-                    if let Value::String(str) = v.take() {
+                nickname: temp_sender.get("nickname").and_then(|v| {
+                    if let Value::String(str) = v.clone() {
                         Some(str)
                     } else {
                         None
                     }
                 }),
-                card: temp_sender.get_mut("card").and_then(|v| {
-                    if let Value::String(str) = v.take() {
+                card: temp_sender.get("card").and_then(|v| {
+                    if let Value::String(str) = v.clone() {
                         Some(str)
                     } else {
                         None
@@ -125,29 +122,29 @@ impl MsgEvent {
                     .get("age")
                     .and_then(|v| v.as_i64())
                     .map(|v| v as i32),
-                area: temp_sender.get_mut("area").and_then(|v| {
-                    if let Value::String(str) = v.take() {
+                area: temp_sender.get("area").and_then(|v| {
+                    if let Value::String(str) = v.clone() {
                         Some(str)
                     } else {
                         None
                     }
                 }),
-                level: temp_sender.get_mut("level").and_then(|v| {
-                    if let Value::String(str) = v.take() {
+                level: temp_sender.get("level").and_then(|v| {
+                    if let Value::String(str) = v.clone() {
                         Some(str)
                     } else {
                         None
                     }
                 }),
-                role: temp_sender.get_mut("role").and_then(|v| {
-                    if let Value::String(str) = v.take() {
+                role: temp_sender.get("role").and_then(|v| {
+                    if let Value::String(str) = v.clone() {
                         Some(str)
                     } else {
                         None
                     }
                 }),
-                title: temp_sender.get_mut("title").and_then(|v| {
-                    if let Value::String(str) = v.take() {
+                title: temp_sender.get("title").and_then(|v| {
+                    if let Value::String(str) = v.clone() {
                         Some(str)
                     } else {
                         None
@@ -174,7 +171,7 @@ impl MsgEvent {
                 ))?
                 .to_vec();
             Message::from_vec_segment_value(v)
-                .map_err(|e| EventBuildError::ParseError(format!("Parse error: {}", e)))?
+                .map_err(|e| EventBuildError::ParseError(format!("Parse error: {e}")))?
         } else {
             let str_v = temp_object["message"]
                 .as_str()
@@ -182,10 +179,10 @@ impl MsgEvent {
                     "message is not string:{:?}",
                     temp_object["message"]
                 ))
-                .map_err(|e| EventBuildError::ParseError(format!("Parse error: {}", e)))?;
+                .map_err(|e| EventBuildError::ParseError(format!("Parse error: {e}")))?;
             let arr_v = cq_to_arr_inner(str_v);
             Message::from_vec_segment_value(arr_v)
-                .map_err(|e| EventBuildError::ParseError(format!("Parse error: {}", e)))?
+                .map_err(|e| EventBuildError::ParseError(format!("Parse error: {e}")))?
         };
 
         let anonymous: Option<Anonymous> =
@@ -193,11 +190,11 @@ impl MsgEvent {
                 None
             } else {
                 let anonymous = temp_object
-                    .get_mut("anonymous")
+                    .get("anonymous")
                     .ok_or(EventBuildError::ParseError(
                         "Invalid anonymous field".to_string(),
                     ))?
-                    .take();
+                    .clone();
                 Some(
                     serde_json::from_value(anonymous)
                         .map_err(|e| EventBuildError::ParseError(e.to_string()))?,
@@ -207,10 +204,10 @@ impl MsgEvent {
         let text = {
             let mut text_vec = Vec::new();
             for msg in message.iter() {
-                if msg.type_ == "text" {
-                    if let Some(text_value) = msg.data.get("text").and_then(|v| v.as_str()) {
-                        text_vec.push(text_value);
-                    }
+                if msg.type_ == "text"
+                    && let Some(text_value) = msg.data.get("text").and_then(|v| v.as_str())
+                {
+                    text_vec.push(text_value);
                 };
             }
             if !text_vec.is_empty() {
@@ -231,13 +228,13 @@ impl MsgEvent {
                 .and_then(|v| v.as_i64())
                 .ok_or(EventBuildError::ParseError("Invalid self_id".to_string()))?,
             post_type: temp_object
-                .get_mut("post_type")
-                .and_then(|v| serde_json::from_value::<PostType>(v.take()).ok())
+                .get("post_type")
+                .and_then(|v| serde_json::from_value::<PostType>(v.clone()).ok())
                 .ok_or(EventBuildError::ParseError("Invalid post_type".to_string()))?,
             message_type: temp_object
-                .get_mut("message_type")
+                .get("message_type")
                 .and_then(|v| {
-                    if let Value::String(str) = v.take() {
+                    if let Value::String(str) = v.clone() {
                         Some(str)
                     } else {
                         None
@@ -247,9 +244,9 @@ impl MsgEvent {
                     "Invalid message_type".to_string(),
                 ))?,
             sub_type: temp_object
-                .get_mut("sub_type")
+                .get("sub_type")
                 .and_then(|v| {
-                    if let Value::String(str) = v.take() {
+                    if let Value::String(str) = v.clone() {
                         Some(str)
                     } else {
                         None
@@ -270,9 +267,9 @@ impl MsgEvent {
                 .ok_or(EventBuildError::ParseError("Invalid user_id".to_string()))?,
             anonymous,
             raw_message: temp_object
-                .get_mut("raw_message")
+                .get("raw_message")
                 .and_then(|v| {
-                    if let Value::String(str) = v.take() {
+                    if let Value::String(str) = v.clone() {
                         Some(str)
                     } else {
                         None
@@ -291,7 +288,7 @@ impl MsgEvent {
             text,
             original_json: temp,
         };
-        debug!("{:?}", event);
+        debug!("{event:?}");
         Ok(event)
     }
 }
@@ -301,7 +298,7 @@ impl MsgEvent {
     ///
     /// # example
     ///
-    /// ```rust
+    /// ```ignore
     /// use kovi::PluginBuilder;
     ///
     /// PluginBuilder::on_msg(|event| async move {

@@ -1,4 +1,4 @@
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use std::{
     fs::{self, File},
     io::{Read, Write},
@@ -6,10 +6,10 @@ use std::{
 };
 
 fn save_data(data: &[u8], file_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
-    if let Some(parent) = file_path.parent() {
-        if !parent.exists() {
-            fs::create_dir_all(parent)?;
-        }
+    if let Some(parent) = file_path.parent()
+        && !parent.exists()
+    {
+        fs::create_dir_all(parent)?;
     }
 
     let mut file = File::create(file_path)?;

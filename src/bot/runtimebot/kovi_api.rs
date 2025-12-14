@@ -1,7 +1,11 @@
 use super::RuntimeBot;
-use crate::{Bot, PluginBuilder, RT, error::BotError, plugin::PluginInfo, types::ApiAndOneshot};
+use crate::error::BotError;
+use crate::plugin::PluginInfo;
+use crate::types::ApiAndOneshot;
+use crate::{Bot, PluginBuilder, RT};
 use parking_lot::RwLock;
-use std::{path::PathBuf, sync::Arc};
+use std::path::PathBuf;
+use std::sync::Arc;
 use tokio::sync::mpsc;
 
 #[cfg(feature = "plugin-access-control")]
@@ -183,7 +187,7 @@ impl RuntimeBot {
             }
             // 添加多个用户到名单
             (SetAccessControlList::Adds(ids), false) => {
-                bot.information.deputy_admins.extend(ids);
+                plugin.access_list.friends.extend(ids);
             }
             // 从名单中移除一个用户
             (SetAccessControlList::Remove(id), false) => {
@@ -191,7 +195,7 @@ impl RuntimeBot {
             }
             // 从名单中移除多个用户
             (SetAccessControlList::Removes(ids), false) => {
-                bot.information.deputy_admins.retain(|&x| !ids.contains(&x));
+                plugin.access_list.friends.retain(|&x| !ids.contains(&x));
             }
             // 替换名单为新的用户列表
             (SetAccessControlList::Changes(ids), false) => {
@@ -217,22 +221,25 @@ impl RuntimeBot {
             None => return Err(BotError::RefExpired),
         };
 
-        let mut bot = bot.write();
+        let bot = bot.read();
         match change {
             SetAdmin::Add(id) => {
-                bot.information.deputy_admins.insert(id);
+                bot.information.write().deputy_admins.insert(id);
             }
             SetAdmin::Adds(ids) => {
-                bot.information.deputy_admins.extend(ids);
+                bot.information.write().deputy_admins.extend(ids);
             }
             SetAdmin::Remove(id) => {
-                bot.information.deputy_admins.remove(&id);
+                bot.information.write().deputy_admins.remove(&id);
             }
             SetAdmin::Removes(ids) => {
-                bot.information.deputy_admins.retain(|&x| !ids.contains(&x));
+                bot.information
+                    .write()
+                    .deputy_admins
+                    .retain(|&x| !ids.contains(&x));
             }
             SetAdmin::Changes(ids) => {
-                bot.information.deputy_admins = ids.into_iter().collect();
+                bot.information.write().deputy_admins = ids.into_iter().collect();
             }
         }
 
@@ -251,7 +258,7 @@ impl RuntimeBot {
             None => return Err(BotError::RefExpired),
         };
 
-        let id = bot.read().information.main_admin;
+        let id = bot.read().information.read().main_admin;
         Ok(id)
     }
 
@@ -267,7 +274,7 @@ impl RuntimeBot {
             None => return Err(BotError::RefExpired),
         };
 
-        let ids = bot.read().information.deputy_admins.clone();
+        let ids = bot.read().information.read().deputy_admins.clone();
         Ok(ids.into_iter().collect())
     }
 
@@ -287,9 +294,9 @@ impl RuntimeBot {
 
         let bot = bot.read();
 
-        admins.push(bot.information.main_admin);
+        admins.push(bot.information.read().main_admin);
 
-        admins.extend(bot.information.deputy_admins.clone());
+        admins.extend(bot.information.read().deputy_admins.clone());
 
         Ok(admins)
     }
@@ -472,10 +479,8 @@ fn enable_plugin<T: AsRef<str>>(
     let plugin_name = plugin_name.as_ref();
 
     let (host, port) = {
-        (
-            bot_read.information.server.host.clone(),
-            bot_read.information.server.port,
-        )
+        let info = bot_read.information.read();
+        (info.server.host.clone(), info.server.port)
     };
 
     let Some(bot_plugin) = bot_read.plugins.get(plugin_name) else {
