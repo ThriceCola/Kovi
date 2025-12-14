@@ -1,7 +1,7 @@
 [package]
 name = "kovi"
 version = "2025.12.0"
-edition = "2021"
+edition = "2024"
 description = "A OneBot V11 bot plugin framework"
 documentation = "https://thricecola.github.io/kovi-doc/"
 readme = "README_Cargo.md"
@@ -43,13 +43,11 @@ logger = ["env_logger"]
 native-tls-vendored = ["tokio-tungstenite/native-tls-vendored"]
 plugin-access-control = []
 rustls-tls-native-roots = ["tokio-tungstenite/rustls-tls-native-roots"]
-<<<<<<< HEAD
-
-[package.metadata]
-rust-version = "nightly"
-=======
 rustls-tls-webpki-roots = ["tokio-tungstenite/rustls-tls-webpki-roots"]
 save_bot_admin = []
 save_bot_status = ["save_bot_admin", "save_plugin_status"]
 save_plugin_status = []
->>>>>>> origin/main
+
+
+[package.metadata]
+rust-version = "nightly"

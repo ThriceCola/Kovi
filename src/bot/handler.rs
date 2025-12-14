@@ -1,16 +1,14 @@
-use crate::{
-    bot::{
-        plugin_builder::{ListenInner, event::Event},
-        *,
-    },
-    event::InternalEvent,
-    plugin::PLUGIN_NAME,
-    types::ApiAndOneshot,
-};
+use crate::bot::plugin_builder::ListenInner;
+use crate::bot::plugin_builder::event::Event;
+use crate::bot::*;
+use crate::event::InternalEvent;
+use crate::plugin::PLUGIN_NAME;
+use crate::types::ApiAndOneshot;
 use log::info;
 use parking_lot::RwLock;
 use plugin_builder::event::MsgEvent;
-use std::{any::TypeId, sync::Arc};
+use std::any::TypeId;
+use std::sync::Arc;
 
 /// Kovi内部事件
 pub(crate) enum InternalInternalEvent {
