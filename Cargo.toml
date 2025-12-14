@@ -1,6 +1,6 @@
 [package]
 name = "kovi"
-version = "0.12.5"
+version = "0.12.6"
 authors = ["ThriceCola <thricecola@hotmail.com>"]
 edition = "2024"
 description = "A OneBot V11 bot plugin framework"
