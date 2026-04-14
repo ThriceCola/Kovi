@@ -81,17 +81,17 @@ impl RuntimeBot {
         CQMessage: From<T>,
         T: Serialize,
     {
+        let msg = CQMessage::from(msg);
         let send_api = SendApi::new(
             "send_msg",
             json!({
                 "message_type":"group",
                 "group_id":group_id,
                 "message":msg,
-                "auto_escape":true,
+                "auto_escape":false,
             }),
         );
 
-        let msg = CQMessage::from(msg);
         let group_id = &group_id;
         info!(
             "[send] [to group {group_id}]: {}",
@@ -163,15 +163,15 @@ impl RuntimeBot {
         CQMessage: From<T>,
         T: Serialize,
     {
+        let msg = CQMessage::from(msg);
         let send_api = SendApi::new(
             "send_msg",
             json!({"message_type":"private",
                 "user_id":user_id,
                 "message":msg,
-                "auto_escape":true,}),
+                "auto_escape":false,}),
         );
 
-        let msg = CQMessage::from(msg);
         let user_id = &user_id;
         info!(
             "[send] [to private {user_id}]: {}",
@@ -263,16 +263,16 @@ impl RuntimeBot {
         CQMessage: From<T>,
         T: Serialize,
     {
+        let msg = CQMessage::from(msg);
         let send_api = SendApi::new(
             "send_msg",
             json!({
                     "message_type":"group",
                     "group_id":group_id,
                     "message":msg,
-                    "auto_escape":true,
+                    "auto_escape":false,
             }),
         );
-        let msg = CQMessage::from(msg);
         let group_id = &group_id;
         info!(
             "[send] [to group {group_id}]: {}",
@@ -311,17 +311,17 @@ impl RuntimeBot {
         CQMessage: From<T>,
         T: Serialize,
     {
+        let msg = CQMessage::from(msg);
         let send_api = SendApi::new(
             "send_msg",
             json!({
                 "message_type":"private",
                     "user_id":user_id,
                     "message":msg,
-                    "auto_escape":true,
+                    "auto_escape":false,
             }),
         );
 
-        let msg = CQMessage::from(msg);
         let user_id = &user_id;
         info!(
             "[send] [to private {user_id}]: {}",
