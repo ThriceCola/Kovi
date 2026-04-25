@@ -137,3 +137,9 @@ pub trait CanSendApi {
         send_api_request_with_response(self.__get_api_tx(), send_api)
     }
 }
+
+impl CanSendApi for RuntimeBot {
+    fn __get_api_tx(&self) -> &mpsc::Sender<ApiAndOneshot> {
+        &self.api_tx
+    }
+}

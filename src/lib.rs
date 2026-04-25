@@ -24,7 +24,6 @@ pub mod utils;
 
 pub use bot::runtimebot::RuntimeBot;
 pub use bot::{ApiReturn, Bot, event};
-pub use error::MessageError;
 pub use kovi_macros::plugin;
 pub use plugin::plugin_builder::PluginBuilder;
 pub use task::spawn;
