@@ -1,9 +1,9 @@
 pub mod plugin_builder;
 
 use crate::PluginBuilder;
-use crate::bot::plugin_builder::Listen;
 #[cfg(feature = "plugin-access-control")]
 use crate::bot::runtimebot::kovi_api::AccessList;
+use crate::plugin::plugin_builder::Listen;
 use crate::types::KoviAsyncFn;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;

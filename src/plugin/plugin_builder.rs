@@ -1,25 +1,17 @@
 use crate::RT;
-use crate::bot::BotInformation;
-use crate::bot::Host;
-use crate::bot::plugin_builder::event::Event;
-use crate::bot::{Bot, runtimebot::RuntimeBot};
-use crate::event::InternalEvent;
-use crate::event::MsgSendFromServerEvent;
-use crate::event::{AdminMsgEvent, GroupMsgEvent, PrivateMsgEvent};
+use crate::bot::runtimebot::RuntimeBot;
+use crate::bot::{Bot, BotInformation, Host};
+use crate::event::{Event, InternalEvent};
 use crate::plugin::{PLUGIN_BUILDER, PLUGIN_NAME};
 use crate::types::{ApiAndOneshot, NoArgsFn, PinFut};
 use croner::Cron;
 use croner::errors::CronError;
-use event::{MsgEvent, NoticeEvent, RequestEvent};
 use log::error;
 use parking_lot::RwLock;
 use std::any::Any;
 use std::future::Future;
 use std::sync::Arc;
 use tokio::sync::mpsc;
-
-// 兼容旧版本
-pub use crate::bot::event;
 
 macro_rules! assert_right_place {
     ($expr:expr) => {
@@ -156,131 +148,6 @@ impl PluginBuilder {
             let bot_plugin = bot.plugins.get_mut(&p.runtime_bot.plugin_name).expect("");
 
             bot_plugin.listen.on(handler);
-        }));
-    }
-
-    /// 注册事件处理函数。
-    pub fn on_msg<F, Fut>(handler: F)
-    where
-        F: Fn(Arc<MsgEvent>) -> Fut + Send + Sync + 'static,
-        Fut: Future + Send,
-        Fut::Output: Send,
-    {
-        PluginBuilder::on::<MsgEvent, _>(handler)
-    }
-
-    /// 注册事件处理函数。
-    pub fn on_admin_msg<F, Fut>(handler: F)
-    where
-        F: Fn(Arc<AdminMsgEvent>) -> Fut + Send + Sync + 'static,
-        Fut: Future + Send,
-        Fut::Output: Send,
-    {
-        PluginBuilder::on::<AdminMsgEvent, _>(handler)
-    }
-
-    /// 注册事件处理函数。
-    pub fn on_private_msg<F, Fut>(handler: F)
-    where
-        F: Fn(Arc<PrivateMsgEvent>) -> Fut + Send + Sync + 'static,
-        Fut: Future + Send,
-        Fut::Output: Send,
-    {
-        PluginBuilder::on::<PrivateMsgEvent, _>(handler)
-    }
-
-    /// 注册事件处理函数。
-    pub fn on_group_msg<F, Fut>(handler: F)
-    where
-        F: Fn(Arc<GroupMsgEvent>) -> Fut + Send + Sync + 'static,
-        Fut: Future + Send,
-        Fut::Output: Send,
-    {
-        PluginBuilder::on::<GroupMsgEvent, _>(handler)
-    }
-
-    #[deprecated(
-        note = "请使用 `PluginBuilder::on::(|event: Arc<MsgSendFromServerEvent>| fn())` 代替"
-    )]
-    /// 注册事件处理函数。
-    pub fn on_msg_send<F, Fut>(handler: F)
-    where
-        F: Fn(Arc<MsgSendFromServerEvent>) -> Fut + Send + Sync + 'static,
-        Fut: Future + Send,
-        Fut::Output: Send,
-    {
-        PluginBuilder::on::<MsgSendFromServerEvent, _>(handler)
-    }
-
-    /// 注册事件处理函数。
-    pub fn on_notice<F, Fut>(handler: F)
-    where
-        F: Fn(Arc<NoticeEvent>) -> Fut + Send + Sync + 'static,
-        Fut: Future + Send,
-        Fut::Output: Send,
-    {
-        PluginBuilder::on::<NoticeEvent, _>(handler)
-    }
-
-    /// 注册事件处理函数。
-    pub fn on_request<F, Fut>(handler: F)
-    where
-        F: Fn(Arc<RequestEvent>) -> Fut + Send + Sync + 'static,
-        Fut: Future + Send,
-        Fut::Output: Send,
-    {
-        PluginBuilder::on::<RequestEvent, _>(handler)
-    }
-
-    #[deprecated(note = "请使用 `on_notice` 代替")]
-    /// 注册事件处理函数。
-    pub fn on_all_notice<F, Fut>(handler: F)
-    where
-        F: Fn(Arc<NoticeEvent>) -> Fut + Send + Sync + 'static,
-        Fut: Future + Send,
-        Fut::Output: Send,
-    {
-        Self::on_notice(handler)
-    }
-
-    #[deprecated(note = "请使用 `on_request` 代替")]
-    /// 注册事件处理函数。
-    pub fn on_all_request<F, Fut>(handler: F)
-    where
-        F: Fn(Arc<RequestEvent>) -> Fut + Send + Sync + 'static,
-        Fut: Future + Send,
-        Fut::Output: Send,
-    {
-        Self::on_request(handler)
-    }
-
-    /// 注册程序结束事件处理函数。
-    ///
-    /// 注册处理程序，用于处理接收到的程序结束事件。
-    pub fn drop<F, Fut>(handler: F)
-    where
-        F: Fn() -> Fut + Send + Sync + 'static,
-        Fut: Future + Send,
-        Fut::Output: Send,
-    {
-        assert_right_place!(PLUGIN_BUILDER.try_with(|p| {
-            let mut bot = p.bot.write();
-            let bot_plugin = bot
-                .plugins
-                .get_mut(&p.runtime_bot.plugin_name)
-                .expect("unreachable");
-
-            bot_plugin.listen.drop.push(Arc::new({
-                let handler = Arc::new(handler);
-                move || {
-                    Box::pin({
-                        let handler = handler.clone();
-                        async move {
-                            handler().await;
-                        }
-                    })
-                }
-            }));
         }));
     }
 

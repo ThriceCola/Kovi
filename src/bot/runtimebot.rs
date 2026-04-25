@@ -8,7 +8,6 @@ use std::sync::Weak;
 use tokio::sync::{mpsc, oneshot};
 
 pub mod kovi_api;
-pub mod onebot_api;
 
 pub use kovi_api::SetAdmin;
 

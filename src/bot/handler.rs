@@ -1,16 +1,10 @@
-use crate::{
-    bot::{
-        plugin_builder::{ListenInner, event::Event},
-        *,
-    },
-    event::InternalEvent,
-    plugin::PLUGIN_NAME,
-    types::ApiAndOneshot,
-};
-use log::info;
+use crate::bot::*;
+use crate::event::{Event, InternalEvent};
+use crate::plugin::PLUGIN_NAME;
+use crate::plugin::plugin_builder::ListenInner;
+use crate::types::ApiAndOneshot;
 use parking_lot::RwLock;
-use plugin_builder::event::MsgEvent;
-use std::{any::TypeId, sync::Arc};
+use std::sync::Arc;
 
 /// Kovi内部事件
 pub(crate) enum InternalInternalEvent {
@@ -73,17 +67,20 @@ impl Bot {
             .clone()
             .map(|(name, plugin)| {
                 let name = Arc::new(name.to_owned());
-                (name.clone(), PluginCache {
-                    name,
-                    #[cfg(feature = "plugin-access-control")]
-                    acc: AccCache::new(
-                        plugin.access_control,
-                        plugin.list_mode,
-                        plugin.access_list.clone(),
-                    ),
-                    bot_info: info.clone(),
-                    enabled: plugin.enabled.subscribe(),
-                })
+                (
+                    name.clone(),
+                    PluginCache {
+                        name,
+                        #[cfg(feature = "plugin-access-control")]
+                        acc: AccCache::new(
+                            plugin.access_control,
+                            plugin.list_mode,
+                            plugin.access_list.clone(),
+                        ),
+                        bot_info: info.clone(),
+                        enabled: plugin.enabled.subscribe(),
+                    },
+                )
             })
             .collect::<ahash::HashMap<Arc<String>, PluginCache>>();
 
@@ -106,10 +103,11 @@ impl Bot {
 
         drop(bot_read);
 
-        let msg_event = MsgEvent::de(&msg, &info.read(), &api_tx).map(|e| {
-            log_msg_event(&e);
-            Arc::new(e)
-        });
+        // TODO： 由于onebot拆分所以这里作为一个打印bot启动日志的服务暂时注释掉
+        // let msg_event = MsgEvent::de(&msg, &info.read(), &api_tx).map(|e| {
+        //     log_msg_event(&e);
+        //     Arc::new(e)
+        // });
 
         struct SharedData {
             msg: InternalEvent,
@@ -125,35 +123,42 @@ impl Bot {
 
         for (type_id, plugin_map) in type_plugin_map {
             tokio::spawn(type_handler(
-                type_id,
+                // TODO： 由于onebot拆分所以这里暂时注释掉
+                // type_id,
                 plugin_map,
-                msg_event.clone(),
+                // TODO： 由于onebot拆分所以这里作为一个plugin-access-control的服务暂时注释掉
+                // msg_event.clone(),
                 shared_data.clone(),
             ));
         }
 
         async fn type_handler(
-            type_id: TypeId,
+            // TODO： 由于onebot拆分所以这里暂时注释掉
+            // type_id: TypeId,
             plugin_map: EventHandler,
-            msg_event: Option<Arc<MsgEvent>>,
+            // TODO： 由于onebot拆分所以这里作为一个plugin-access-control的服务暂时注释掉
+            // msg_event: Option<Arc<MsgEvent>>,
             shared_data: Arc<SharedData>,
         ) {
-            let mut event_cache = if type_id == TypeId::of::<MsgEvent>() {
-                msg_event.clone().map(|arc| arc as Arc<dyn Event>)
-            } else {
-                None
-            };
+            // TODO： 由于onebot拆分所以这里暂时注释掉
+            // let mut event_cache = if type_id == TypeId::of::<MsgEvent>() {
+            //     msg_event.clone().map(|arc| arc as Arc<dyn Event>)
+            // } else {
+            //     None
+            // };
 
+            let mut event_cache: Option<Arc<dyn Event>> = None;
             for (name, plugin_vec) in plugin_map.plugins.into_iter() {
                 let plugin_cache = &shared_data.plugin_cache[&name];
 
-                #[cfg(feature = "plugin-access-control")]
-                if let Some(event) = &msg_event {
-                    // 判断是否黑白名单
-                    if !is_access(&plugin_cache.acc, event) {
-                        continue;
-                    }
-                }
+                // TODO： 由于onebot拆分所以这里作为一个plugin-access-control的服务暂时注释掉
+                // #[cfg(feature = "plugin-access-control")]
+                // if let Some(event) = &msg_event {
+                //     // 判断是否黑白名单
+                //     if !is_access(&plugin_cache.acc, event) {
+                //         continue;
+                //     }
+                // }
 
                 for listen in plugin_vec {
                     let event = match &event_cache {
@@ -200,22 +205,23 @@ impl Bot {
             }
         }
 
-        fn log_msg_event(event: &MsgEvent) {
-            info!(
-                "[{message_type}{group_id}{nickname} {id}]: {text}",
-                message_type = event.message_type,
-                group_id = match event.group_id {
-                    Some(id) => id.to_string(),
-                    None => "".to_string(),
-                },
-                nickname = match &event.sender.nickname {
-                    Some(nickname) => nickname,
-                    None => "",
-                },
-                id = event.sender.user_id,
-                text = event.message.to_human_string()
-            );
-        }
+        // TODO： 由于onebot拆分所以这里作为一个打印bot启动日志的服务暂时注释掉
+        // fn log_msg_event(event: &MsgEvent) {
+        //     info!(
+        //         "[{message_type}{group_id}{nickname} {id}]: {text}",
+        //         message_type = event.message_type,
+        //         group_id = match event.group_id {
+        //             Some(id) => id.to_string(),
+        //             None => "".to_string(),
+        //         },
+        //         nickname = match &event.sender.nickname {
+        //             Some(nickname) => nickname,
+        //             None => "",
+        //         },
+        //         id = event.sender.user_id,
+        //         text = event.message.to_human_string()
+        //     );
+        // }
 
         async fn handle_listen(listen: Arc<ListenInner>, cache_event: Arc<dyn Event + 'static>) {
             (*listen.handler)(cache_event).await;
@@ -253,30 +259,31 @@ impl AccCache {
     }
 }
 
-#[cfg(feature = "plugin-access-control")]
-fn is_access(plugin: &AccCache, event: &MsgEvent) -> bool {
-    if !plugin.access_control {
-        return true;
-    }
+// TODO： 由于onebot拆分所以这里作为一个plugin-access-control的服务暂时注释掉
+// #[cfg(feature = "plugin-access-control")]
+// fn is_access(plugin: &AccCache, event: &MsgEvent) -> bool {
+//     if !plugin.access_control {
+//         return true;
+//     }
 
-    let access_list = &plugin.access_list;
-    let in_group = event.is_group();
+//     let access_list = &plugin.access_list;
+//     let in_group = event.is_group();
 
-    match (plugin.list_mode, in_group) {
-        (AccessControlMode::WhiteList, true) => access_list
-            .groups
-            .contains(event.group_id.as_ref().expect("unreachable")),
-        (AccessControlMode::WhiteList, false) => {
-            access_list.friends.contains(&event.sender.user_id)
-        }
-        (AccessControlMode::BlackList, true) => !access_list
-            .groups
-            .contains(event.group_id.as_ref().expect("unreachable")),
-        (AccessControlMode::BlackList, false) => {
-            !access_list.friends.contains(&event.sender.user_id)
-        }
-    }
-}
+//     match (plugin.list_mode, in_group) {
+//         (AccessControlMode::WhiteList, true) => access_list
+//             .groups
+//             .contains(event.group_id.as_ref().expect("unreachable")),
+//         (AccessControlMode::WhiteList, false) => {
+//             access_list.friends.contains(&event.sender.user_id)
+//         }
+//         (AccessControlMode::BlackList, true) => !access_list
+//             .groups
+//             .contains(event.group_id.as_ref().expect("unreachable")),
+//         (AccessControlMode::BlackList, false) => {
+//             !access_list.friends.contains(&event.sender.user_id)
+//         }
+//     }
+// }
 
 #[allow(dead_code)]
 #[derive(Default)]
@@ -313,60 +320,3 @@ impl std::hash::Hasher for IdHasher {
         self.0
     }
 }
-
-// if let Some(lifecycle_event) = LifecycleEvent::de(&msg, &bot_read.information, &api_tx) {
-//     tokio::spawn(lifecycle_event::handler_lifecycle_log_bot_enable(
-//         api_tx.clone(),
-//     ));
-//     cache.insert(
-//         std::any::TypeId::of::<LifecycleEvent>(),
-//         Some(Arc::new(lifecycle_event)),
-//     );
-// };
-
-// // 这里在 没有 plugin-access-control 会警告所以用 _
-// let _msg_sevent_opt = match msg_event {
-//     Some(event) => {
-//         let event = Arc::new(event);
-//         log_msg_event(&event);
-//         cache.insert(std::any::TypeId::of::<MsgEvent>(), Some(event.clone()));
-//         Some(event)
-//     }
-//     None => None,
-// };
-
-// for (name, plugin) in bot_read.plugins.iter() {
-//     let name_ = Arc::new(name.clone());
-
-//     for listen in &plugin.listen.list {
-//         let name = name_.clone();
-//         let api_tx = api_tx.clone();
-
-//         let cache_event = match cache.get(&listen.type_id) {
-//             Some(event) => match event {
-//                 None => {
-//                     continue;
-//                 }
-//                 Some(event) => event.clone(),
-//             },
-//             None => {
-//                 let event_opt = (listen.type_de)(&msg, &bot_read.information, &api_tx);
-//                 cache.insert(listen.type_id, event_opt.clone());
-//                 match event_opt {
-//                     Some(event) => event,
-//                     None => continue,
-//                 }
-//             }
-//         };
-
-//         let listen = listen.clone();
-//         let enabled = plugin.enabled.subscribe();
-
-//         RT.spawn(async move {
-//             tokio::select! {
-//                 _ = PLUGIN_NAME.scope(name, Self::handle_listen(listen, cache_event)) => {}
-//                 _ = monitor_enabled_state(enabled) => {}
-//             }
-//         });
-//     }
-// }

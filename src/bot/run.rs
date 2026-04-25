@@ -1,24 +1,18 @@
-use super::{Bot, handler::KoviEvent};
-use crate::{
-    PluginBuilder, bot::handler::InternalInternalEvent,
-    event::lifecycle_event::handler_lifecycle_log_bot_enable, types::ApiAndOneshot,
-};
+use super::Bot;
+use super::handler::KoviEvent;
+use crate::PluginBuilder;
+use crate::bot::handler::InternalInternalEvent;
+use crate::types::ApiAndOneshot;
 use log::error;
 use parking_lot::RwLock;
-use std::{
-    borrow::Borrow,
-    future::Future,
-    process::exit,
-    sync::{Arc, LazyLock},
-};
-use tokio::{
-    runtime::Runtime as TokioRuntime,
-    sync::{
-        mpsc::{self, Sender},
-        watch,
-    },
-    task::JoinHandle,
-};
+use std::borrow::Borrow;
+use std::future::Future;
+use std::process::exit;
+use std::sync::{Arc, LazyLock};
+use tokio::runtime::Runtime as TokioRuntime;
+use tokio::sync::mpsc::{self, Sender};
+use tokio::sync::watch;
+use tokio::task::JoinHandle;
 
 pub(crate) static RUNTIME: LazyLock<TokioRuntime> =
     LazyLock::new(|| TokioRuntime::new().expect("unreachable! tokio runtime fail to start"));
@@ -91,7 +85,8 @@ impl Bot {
                 });
             }
 
-            tokio::spawn(handler_lifecycle_log_bot_enable(api_tx.clone()));
+            // TODO： 由于onebot拆分所以这里作为一个打印bot启动日志的服务暂时注释掉
+            // tokio::spawn(handler_lifecycle_log_bot_enable(api_tx.clone()));
 
             let mut drop_task = None;
             //处理事件，每个事件都会来到这里

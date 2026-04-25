@@ -2,18 +2,17 @@ use ahash::{HashMapExt as _, RandomState};
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Input, Select};
 use parking_lot::RwLock;
-use plugin_builder::Listen;
 use rand::Rng as _;
 #[cfg(feature = "plugin-access-control")]
 use runtimebot::kovi_api::AccessList;
 use serde::{Deserialize, Serialize};
 use serde_json::{self, Value};
 use std::collections::{HashMap, HashSet};
-use std::env;
 use std::fmt::{Debug, Display};
 use std::io::Write as _;
-use std::net::{Ipv4Addr, Ipv6Addr};
-use std::{fs, net::IpAddr, sync::Arc};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::sync::Arc;
+use std::{env, fs};
 use tokio::sync::mpsc::{self};
 use tokio::sync::watch;
 
@@ -23,6 +22,7 @@ use crate::RT;
 #[cfg(feature = "plugin-access-control")]
 pub use crate::bot::runtimebot::kovi_api::AccessControlMode;
 
+use crate::plugin::plugin_builder::Listen;
 use crate::plugin::{Plugin, PluginStatus};
 use crate::types::KoviAsyncFn;
 
@@ -30,10 +30,7 @@ pub(crate) mod connect;
 pub(crate) mod handler;
 pub(crate) mod run;
 
-// 兼容
-pub use crate::plugin::plugin_builder;
 pub mod event;
-pub mod message;
 pub mod runtimebot;
 
 /// bot结构体
@@ -56,8 +53,7 @@ impl Bot {
     /// # Examples
     /// ```
     /// use kovi::Bot;
-    /// use kovi::bot::KoviConf;
-    /// use kovi::bot::Server;
+    /// use kovi::bot::{KoviConf, Server};
     /// use std::net::{IpAddr, Ipv4Addr};
     ///
     /// let conf = KoviConf::new(
@@ -310,15 +306,18 @@ impl Bot {
 
             let mut plugin_status = HashMap::new();
             for (name, plugin) in self.plugins.iter() {
-                plugin_status.insert(name.clone(), PluginStatus {
-                    enable_on_startup: *plugin.enabled.borrow(),
-                    #[cfg(feature = "plugin-access-control")]
-                    access_control: plugin.access_control,
-                    #[cfg(feature = "plugin-access-control")]
-                    list_mode: plugin.list_mode,
-                    #[cfg(feature = "plugin-access-control")]
-                    access_list: plugin.access_list.clone(),
-                });
+                plugin_status.insert(
+                    name.clone(),
+                    PluginStatus {
+                        enable_on_startup: *plugin.enabled.borrow(),
+                        #[cfg(feature = "plugin-access-control")]
+                        access_control: plugin.access_control,
+                        #[cfg(feature = "plugin-access-control")]
+                        list_mode: plugin.list_mode,
+                        #[cfg(feature = "plugin-access-control")]
+                        access_list: plugin.access_list.clone(),
+                    },
+                );
             }
 
             let serialized = match toml::to_string(&plugin_status) {
