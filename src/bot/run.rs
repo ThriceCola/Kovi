@@ -1,22 +1,25 @@
+mod connect;
+
 use super::Bot;
-use super::handler::KoviEvent;
 use crate::PluginBuilder;
 use crate::bot::handler::InternalInternalEvent;
-use crate::types::ApiAndOneshot;
+use crate::drive::{Drive, DriveEvent};
+use crate::event::InternalEvent;
+use crate::types::{ApiAndOptOneshot, ApiAndRuturn};
+use futures::StreamExt as _;
 use log::error;
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
 use std::borrow::Borrow;
 use std::future::Future;
 use std::process::exit;
 use std::sync::{Arc, LazyLock};
-use tokio::runtime::Runtime as TokioRuntime;
 use tokio::sync::mpsc::{self, Sender};
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
-pub(crate) static RUNTIME: LazyLock<TokioRuntime> =
-    LazyLock::new(|| TokioRuntime::new().expect("unreachable! tokio runtime fail to start"));
-pub(crate) use RUNTIME as RT;
+// pub(crate) static RUNTIME: LazyLock<TokioRuntime> =
+//     LazyLock::new(|| TokioRuntime::new().expect("unreachable! tokio runtime fail to start"));
+// pub(crate) use RUNTIME as RT;
 
 impl Bot {
     pub fn spawn<F>(&mut self, future: F) -> JoinHandle<F::Output>
@@ -24,7 +27,7 @@ impl Bot {
         F: Future + Send + 'static,
         F::Output: Send + 'static,
     {
-        let join = RT.spawn(future);
+        let join = tokio::spawn(future);
         self.run_abort.push(join.abort_handle());
         join
     }
@@ -32,110 +35,86 @@ impl Bot {
     /// 运行bot
     ///
     /// **注意此函数会阻塞, 直到Bot连接失效，或者有退出信号传入程序**
-    pub fn run(self) {
-        let server = self.information.read().server.clone();
+    pub async fn run(self) {
+        let drive = self.drive.clone();
 
         let bot = Arc::new(RwLock::new(self));
 
-        let async_task = async {
-            // let (tx, rx): (
-            //     tokio::sync::broadcast::Sender<Arc<dyn super::plugin_builder::event::Event>>,
-            //     tokio::sync::broadcast::Receiver<Arc<dyn super::plugin_builder::event::Event>>,
-            // ) = tokio::sync::broadcast::channel(32);
+        Self::hander_event(bot, drive).await;
+    }
 
-            //处理连接，从msg_tx返回消息
-            let (event_tx, mut event_rx): (
-                mpsc::Sender<InternalInternalEvent>,
-                mpsc::Receiver<InternalInternalEvent>,
-            ) = mpsc::channel(32);
+    async fn hander_event(bot: Arc<RwLock<Bot>>, drive: Arc<dyn Drive>) {
+        //处理连接，从msg_tx返回消息
+        let (self_event_tx, mut self_event_rx): (
+            mpsc::Sender<InternalInternalEvent>,
+            mpsc::Receiver<InternalInternalEvent>,
+        ) = mpsc::channel(32);
 
-            // 接收插件的api
-            let (api_tx, api_rx): (mpsc::Sender<ApiAndOneshot>, mpsc::Receiver<ApiAndOneshot>) =
-                mpsc::channel(32);
+        // 接收插件的api
+        let (self_api_tx, self_api_rx): (
+            mpsc::Sender<ApiAndOptOneshot>,
+            mpsc::Receiver<ApiAndOptOneshot>,
+        ) = mpsc::channel(32);
 
-            // 连接
-            let connect_task = RT.spawn({
-                let event_tx = event_tx.clone();
-                Self::ws_connect(server, api_rx, event_tx, bot.clone())
-            });
+        {
+            let mut bot_write = bot.write();
 
-            let connect_res = connect_task.await.expect("unreachable");
+            // // drop检测
+            // bot_write.spawn({
+            //     let event_tx = event_tx;
+            //     exit_signal_check(event_tx)
+            // });
 
-            if let Err(e) = connect_res {
-                error!(
-                    "{e}\nBot connection failed, please check the configuration and restart the bot"
-                );
-                return;
-            }
+            bot_write.spawn(connect::event_connect(self_event_tx.clone(), drive.clone()));
 
-            {
-                let mut bot_write = bot.write();
+            bot_write.spawn(connect::send_connect(
+                self_api_rx,
+                self_event_tx,
+                drive.clone(),
+            ));
 
-                // drop检测
-                bot_write.spawn({
-                    let event_tx = event_tx;
-                    exit_signal_check(event_tx)
-                });
-
-                // 运行所有的main
-                bot_write.spawn({
-                    let bot = bot.clone();
-                    let api_tx = api_tx.clone();
-                    async move { Self::run_mains(bot, api_tx) }
-                });
-            }
-
-            // TODO： 由于onebot拆分所以这里作为一个打印bot启动日志的服务暂时注释掉
-            // tokio::spawn(handler_lifecycle_log_bot_enable(api_tx.clone()));
-
-            let mut drop_task = None;
-            //处理事件，每个事件都会来到这里
-            while let Some(event) = event_rx.recv().await {
-                let api_tx = api_tx.clone();
+            // 运行所有的main
+            bot_write.spawn({
                 let bot = bot.clone();
+                let self_api_tx = self_api_tx.clone();
+                async move { Self::run_mains(bot, self_api_tx) }
+            });
+        }
 
-                // Drop为关闭事件，所以要等待，其他的不等待
-                if let InternalInternalEvent::KoviEvent(KoviEvent::Drop) = event {
-                    drop_task = Some(RT.spawn(Self::handler_event(bot, event, api_tx)));
-                    break;
-                } else {
-                    RT.spawn(Self::handler_event(bot, event, api_tx));
+        let mut drop_task = None;
+        //处理事件，每个事件都会来到这里
+        while let Some(event) = self_event_rx.recv().await {
+            let self_api_tx = self_api_tx.clone();
+            let bot = bot.clone();
+
+            // Drop为关闭事件，所以要等待，其他的不等待
+            if let InternalInternalEvent::Exit = event {
+                drop_task = Some(tokio::spawn(Self::handler_event(bot, event, self_api_tx)));
+                break;
+            } else {
+                tokio::spawn(Self::handler_event(bot, event, self_api_tx));
+            }
+        }
+        if let Some(drop_task) = drop_task {
+            match drop_task.await {
+                Ok(_) => {}
+                Err(e) => {
+                    error!("{e}")
                 }
-            }
-            if let Some(drop_task) = drop_task {
-                match drop_task.await {
-                    Ok(_) => {}
-                    Err(e) => {
-                        error!("{e}")
-                    }
-                };
-            }
-        };
-
-        RT.block_on(async_task);
+            };
+        }
     }
 
     // 运行所有main()
-    fn run_mains(bot: Arc<RwLock<Self>>, api_tx: mpsc::Sender<ApiAndOneshot>) {
+    fn run_mains(bot: Arc<RwLock<Self>>, api_tx: mpsc::Sender<ApiAndOptOneshot>) {
         let bot_ = bot.read();
         let main_job_map = bot_.plugins.borrow();
-
-        let (host, port) = {
-            let info = bot_.information.read();
-            (info.server.host.clone(), info.server.port)
-        };
 
         for (name, plugin) in main_job_map.iter() {
             if !plugin.enable_on_startup {
                 continue;
             }
-            let plugin_builder = PluginBuilder::new(
-                name.clone(),
-                bot.clone(),
-                host.clone(),
-                port,
-                api_tx.clone(),
-            );
+            let plugin_builder = PluginBuilder::new(name.clone(), bot.clone(), api_tx.clone());
             plugin.run(plugin_builder);
         }
     }
@@ -159,7 +138,7 @@ impl ExitCheck {
         let (tx, watch_rx) = watch::channel(false);
 
         // 启动 drop check 任务
-        let join_handle = RT.spawn(async move {
+        let join_handle = tokio::spawn(async move {
             Self::await_exit_signal().await;
 
             let _ = tx.send(true);
@@ -222,13 +201,13 @@ impl ExitCheck {
     }
 }
 
-pub(crate) async fn exit_signal_check(tx: Sender<InternalInternalEvent>) {
-    DROP_CHECK.await_exit_signal_change().await;
+// pub(crate) async fn exit_signal_check(tx: Sender<InternalInternalEvent>) {
+//     DROP_CHECK.await_exit_signal_change().await;
 
-    tx.send(InternalInternalEvent::KoviEvent(KoviEvent::Drop))
-        .await
-        .expect("The exit signal send failed");
-}
+//     tx.send(InternalInternalEvent::KoviEvent(KoviEvent::Drop))
+//         .await
+//         .expect("The exit signal send failed");
+// }
 
 async fn handler_second_time_exit_signal() {
     exit(1)

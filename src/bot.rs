@@ -2,7 +2,6 @@ use ahash::{HashMapExt as _, RandomState};
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Input, Select};
 use parking_lot::RwLock;
-use rand::Rng as _;
 #[cfg(feature = "plugin-access-control")]
 use runtimebot::kovi_api::AccessList;
 use serde::{Deserialize, Serialize};
@@ -16,9 +15,9 @@ use std::{env, fs};
 use tokio::sync::mpsc::{self};
 use tokio::sync::watch;
 
+use crate::drive::Drive;
 use crate::error::{BotBuildError, BotError};
 
-use crate::RT;
 #[cfg(feature = "plugin-access-control")]
 pub use crate::bot::runtimebot::kovi_api::AccessControlMode;
 
@@ -26,7 +25,6 @@ use crate::plugin::plugin_builder::Listen;
 use crate::plugin::{Plugin, PluginStatus};
 use crate::types::KoviAsyncFn;
 
-pub(crate) mod connect;
 pub(crate) mod handler;
 pub(crate) mod run;
 
@@ -34,9 +32,9 @@ pub mod event;
 pub mod runtimebot;
 
 /// bot结构体
-#[derive(Clone)]
 pub struct Bot {
     pub information: Arc<RwLock<BotInformation>>,
+    pub drive: Arc<dyn Drive>,
     pub(crate) plugins: HashMap<String, Plugin, RandomState>,
     pub(crate) run_abort: Vec<tokio::task::AbortHandle>,
 }
@@ -70,17 +68,18 @@ impl Bot {
     /// let bot = Bot::build(conf);
     /// bot.run()
     /// ```
-    pub fn build<C>(conf: C) -> Bot
+    pub fn build<C, D>(conf: C, drive: D) -> Bot
     where
         C: AsRef<KoviConf>,
+        D: Drive + 'static,
     {
         let conf = conf.as_ref();
         Bot {
             information: Arc::new(RwLock::new(BotInformation {
                 main_admin: conf.config.main_admin,
                 deputy_admins: conf.config.admins.iter().cloned().collect(),
-                server: conf.server.clone(),
             })),
+            drive: Arc::new(drive),
             plugins: HashMap::<_, _, RandomState>::new(),
             run_abort: Vec::new(),
         }
@@ -379,7 +378,7 @@ impl Bot {
 pub struct SendApi {
     pub action: String,
     pub params: Value,
-    echo: String,
+    // echo: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -387,7 +386,6 @@ pub struct ApiReturn {
     pub status: String,
     pub retcode: i32,
     pub data: Value,
-    pub echo: String,
 }
 
 /// kovi的配置
@@ -428,7 +426,6 @@ impl KoviConf {
 pub struct BotInformation {
     pub main_admin: i64,
     pub deputy_admins: HashSet<i64>,
-    pub server: Server,
 }
 /// server信息
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -468,8 +465,8 @@ impl std::fmt::Display for ApiReturn {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "status: {}, retcode: {}, data: {}, echo: {}",
-            self.status, self.retcode, self.data, self.echo
+            "status: {}, retcode: {}, data: {}",
+            self.status, self.retcode, self.data
         )
     }
 }
@@ -485,19 +482,19 @@ impl SendApi {
         SendApi {
             action: action.to_string(),
             params,
-            echo: Self::rand_echo(),
+            // echo: Self::rand_echo(),
         }
     }
 
-    pub fn rand_echo() -> String {
-        let mut rng = rand::rng();
-        let mut s = String::new();
-        s.push_str(&chrono::Utc::now().timestamp().to_string());
-        for _ in 0..10 {
-            s.push(rng.random_range('a'..='z'));
-        }
-        s
-    }
+    // pub fn rand_echo() -> String {
+    //     let mut rng = rand::rng();
+    //     let mut s = String::new();
+    //     s.push_str(&chrono::Utc::now().timestamp().to_string());
+    //     for _ in 0..10 {
+    //         s.push(rng.random_range('a'..='z'));
+    //     }
+    //     s
+    // }
 }
 
 /// 将配置文件写入磁盘
@@ -645,44 +642,28 @@ fn config_file_write_and_return() -> Result<KoviConf, std::io::Error> {
     Ok(config)
 }
 
-#[macro_export]
-macro_rules! build_bot {
-    ($( $plugin:ident ),* $(,)* ) => {
-        {
-            let conf = match kovi::bot::Bot::load_local_conf() {
-                Ok(c) => c,
-                Err(e) => {
-                    eprintln!("Error loading config: {}", e);
-                    panic!("Failed to load config");
-                }
-            };
-            kovi::logger::try_set_logger();
-            let mut bot = kovi::bot::Bot::build(&conf);
+// #[macro_export]
+// macro_rules! build_bot {
+//     ($( $plugin:ident ),* $(,)* ) => {
+//         {
+//             let conf = match kovi::bot::Bot::load_local_conf() {
+//                 Ok(c) => c,
+//                 Err(e) => {
+//                     eprintln!("Error loading config: {}", e);
+//                     panic!("Failed to load config");
+//                 }
+//             };
+//             kovi::logger::try_set_logger();
+//             let mut bot = kovi::bot::Bot::build(&conf);
 
-            $(
-                let plugin = $plugin::__kovi_build_plugin();
-                kovi::log::info!("Mounting plugin: {}", &plugin.name);
-                bot.mount_plugin(plugin);
-            )*
+//             $(
+//                 let plugin = $plugin::__kovi_build_plugin();
+//                 kovi::log::info!("Mounting plugin: {}", &plugin.name);
+//                 bot.mount_plugin(plugin);
+//             )*
 
-            bot.set_plugin_startup_use_file_ref();
-            bot
-        }
-    };
-}
-
-#[test]
-fn build_bot() {
-    let conf = KoviConf::new(
-        123456,
-        None,
-        Server {
-            host: Host::IpAddr("127.0.0.1".parse().unwrap()),
-            port: 8081,
-            access_token: "".to_string(),
-            secure: false,
-        },
-        false,
-    );
-    let _ = Bot::build(conf);
-}
+//             bot.set_plugin_startup_use_file_ref();
+//             bot
+//         }
+//     };
+// }

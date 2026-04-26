@@ -1,5 +1,7 @@
+use serde_json::Value;
+
 use crate::bot::BotInformation;
-use crate::types::{ApiAndOneshot, ApiAndRuturn};
+use crate::types::{ApiAndOptOneshot, ApiAndRuturn};
 use std::any::Any;
 
 /// 满足此 trait 即可在Kovi运行时中监听并处理
@@ -66,7 +68,7 @@ pub trait Event: Any + Send + Sync {
     fn de(
         event: &InternalEvent,
         bot_info: &BotInformation,
-        api_tx: &tokio::sync::mpsc::Sender<ApiAndOneshot>,
+        api_tx: &tokio::sync::mpsc::Sender<ApiAndOptOneshot>,
     ) -> Option<Self>
     where
         Self: Sized;
@@ -75,7 +77,7 @@ pub trait Event: Any + Send + Sync {
 /// 事件
 pub enum InternalEvent {
     /// 来自OneBot的事件
-    OneBotEvent(String),
+    OneBotEvent(Value),
     /// 来自Kovi发送给服务端并包含了返回结果
     OneBotApiEvent(ApiAndRuturn),
 }

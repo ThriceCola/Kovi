@@ -1,9 +1,8 @@
-use crate::RT;
 use crate::bot::runtimebot::RuntimeBot;
 use crate::bot::{Bot, BotInformation, Host};
 use crate::event::{Event, InternalEvent};
 use crate::plugin::{PLUGIN_BUILDER, PLUGIN_NAME};
-use crate::types::{ApiAndOneshot, NoArgsFn, PinFut};
+use crate::types::{ApiAndOptOneshot, NoArgsFn, PinFut};
 use croner::Cron;
 use croner::errors::CronError;
 use log::error;
@@ -50,7 +49,11 @@ impl Listen {
     }
 }
 type ArcTypeDeFn = Arc<
-    dyn Fn(&InternalEvent, &BotInformation, &mpsc::Sender<ApiAndOneshot>) -> Option<Arc<dyn Event>>
+    dyn Fn(
+            &InternalEvent,
+            &BotInformation,
+            &mpsc::Sender<ApiAndOptOneshot>,
+        ) -> Option<Arc<dyn Event>>
         + Send
         + Sync,
 >;
@@ -104,16 +107,11 @@ impl PluginBuilder {
     pub(crate) fn new(
         name: String,
         bot: Arc<RwLock<Bot>>,
-        host: Host,
-        port: u16,
-        api_tx: mpsc::Sender<ApiAndOneshot>,
+        api_tx: mpsc::Sender<ApiAndOptOneshot>,
     ) -> Self {
         let bot_weak = Arc::downgrade(&bot);
 
         let runtime_bot = Arc::new(RuntimeBot {
-            host,
-            port,
-
             bot: bot_weak,
             plugin_name: name,
             api_tx,
@@ -130,11 +128,11 @@ impl PluginBuilder {
         assert_right_place!(PLUGIN_BUILDER.try_with(|p| p.runtime_bot.plugin_name.to_string()))
     }
 
-    pub fn get_plugin_host() -> (Host, u16) {
-        assert_right_place!(
-            PLUGIN_BUILDER.try_with(|p| (p.runtime_bot.host.clone(), p.runtime_bot.port))
-        )
-    }
+    // pub fn get_plugin_host() -> (Host, u16) {
+    //     assert_right_place!(
+    //         PLUGIN_BUILDER.try_with(|p| (p.runtime_bot.host.clone(), p.runtime_bot.port))
+    //     )
+    // }
 }
 
 impl PluginBuilder {
@@ -196,7 +194,7 @@ impl PluginBuilder {
             let plugin = bot.plugins.get(&*name).expect("unreachable");
             plugin.enabled.subscribe()
         };
-        RT.spawn(PLUGIN_NAME.scope(name.clone(), async move {
+        tokio::spawn(PLUGIN_NAME.scope(name.clone(), async move {
 
             tokio::select! {
                 _ = async {

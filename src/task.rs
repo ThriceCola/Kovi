@@ -1,17 +1,13 @@
-use crate::{RT, plugin::PLUGIN_NAME};
+use crate::plugin::PLUGIN_NAME;
 use ahash::RandomState;
 use parking_lot::Mutex;
-use std::{
-    borrow::BorrowMut,
-    collections::HashMap,
-    future::Future,
-    sync::{Arc, LazyLock},
-    time::Duration,
-};
-use tokio::{
-    task::{AbortHandle, JoinHandle},
-    time::interval,
-};
+use std::borrow::BorrowMut;
+use std::collections::HashMap;
+use std::future::Future;
+use std::sync::{Arc, LazyLock};
+use std::time::Duration;
+use tokio::task::{AbortHandle, JoinHandle};
+use tokio::time::interval;
 
 pub(crate) static TASK_MANAGER: LazyLock<TaskManager> = LazyLock::new(TaskManager::init);
 
@@ -24,7 +20,7 @@ impl TaskManager {
         let handles = Arc::new(Mutex::new(TaskAbortHandles::default()));
 
         let handles_clone = handles.clone();
-        RT.spawn(async move {
+        tokio::spawn(async move {
             let mut interval = interval(Duration::from_secs(20)); // 每<?>秒清理一次
             loop {
                 interval.tick().await;
@@ -97,7 +93,7 @@ where
     PLUGIN_NAME.with(|name| {
         let join = {
             let name = name.clone();
-            RT.spawn(PLUGIN_NAME.scope(name, future))
+            tokio::spawn(PLUGIN_NAME.scope(name, future))
         };
 
         let about_join = join.abort_handle();

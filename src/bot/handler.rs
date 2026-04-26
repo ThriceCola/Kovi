@@ -2,48 +2,41 @@ use crate::bot::*;
 use crate::event::{Event, InternalEvent};
 use crate::plugin::PLUGIN_NAME;
 use crate::plugin::plugin_builder::ListenInner;
-use crate::types::ApiAndOneshot;
+use crate::types::ApiAndOptOneshot;
 use parking_lot::RwLock;
 use std::sync::Arc;
 
 /// Kovi内部事件
 pub(crate) enum InternalInternalEvent {
-    KoviEvent(KoviEvent),
+    Exit,
     OneBotEvent(InternalEvent),
-}
-
-pub(crate) enum KoviEvent {
-    Drop,
 }
 
 impl Bot {
     pub(crate) async fn handler_event(
         bot: Arc<RwLock<Self>>,
         event: InternalInternalEvent,
-        api_tx: mpsc::Sender<ApiAndOneshot>,
+        api_tx: mpsc::Sender<ApiAndOptOneshot>,
     ) {
         match event {
-            InternalInternalEvent::KoviEvent(event) => Self::handle_kovi_event(bot, event).await,
+            InternalInternalEvent::Exit => Self::handle_kovi_exit(bot).await,
             InternalInternalEvent::OneBotEvent(msg) => {
                 Self::handler_internal_event(bot, msg, api_tx).await
             }
         }
     }
 
-    pub(crate) async fn handle_kovi_event(bot: Arc<RwLock<Self>>, event: KoviEvent) {
+    pub(crate) async fn handle_kovi_exit(bot: Arc<RwLock<Self>>) {
         let drop_task = {
             let mut bot_write = bot.write();
-            match event {
-                KoviEvent::Drop => {
-                    #[cfg(any(feature = "save_plugin_status", feature = "save_bot_admin"))]
-                    bot_write.save_bot_status();
-                    let mut task_vec = Vec::new();
-                    for plugin in bot_write.plugins.values_mut() {
-                        task_vec.push(plugin.shutdown());
-                    }
-                    Some(task_vec)
-                }
+
+            #[cfg(any(feature = "save_plugin_status", feature = "save_bot_admin"))]
+            bot_write.save_bot_status();
+            let mut task_vec = Vec::new();
+            for plugin in bot_write.plugins.values_mut() {
+                task_vec.push(plugin.shutdown());
             }
+            Some(task_vec)
         };
         if let Some(drop_task) = drop_task {
             for task in drop_task {
@@ -55,7 +48,7 @@ impl Bot {
     async fn handler_internal_event(
         bot: Arc<RwLock<Self>>,
         msg: InternalEvent,
-        api_tx: mpsc::Sender<ApiAndOneshot>,
+        api_tx: mpsc::Sender<ApiAndOptOneshot>,
     ) {
         let bot_read = bot.read();
 
@@ -111,7 +104,7 @@ impl Bot {
 
         struct SharedData {
             msg: InternalEvent,
-            api_tx: mpsc::Sender<ApiAndOneshot>,
+            api_tx: mpsc::Sender<ApiAndOptOneshot>,
             plugin_cache: ahash::HashMap<Arc<String>, PluginCache>,
         }
 
@@ -183,7 +176,7 @@ impl Bot {
                     let name = name.clone();
                     let enabled = plugin_cache.enabled.clone();
 
-                    RT.spawn(async move {
+                    tokio::spawn(async move {
                         tokio::select! {
                             _ = PLUGIN_NAME.scope(name, handle_listen(listen, event)) => {}
                             _ = monitor_enabled_state(enabled) => {}

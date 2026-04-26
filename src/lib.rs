@@ -9,6 +9,8 @@
 
 /// Everything about bots is inside
 pub mod bot;
+/// 连接服务端的驱动
+pub mod drive;
 /// 一些错误枚举
 pub mod error;
 /// 控制台输出日志
@@ -36,4 +38,4 @@ pub use serde_json;
 pub use tokio;
 pub use toml;
 
-pub(crate) use crate::bot::run::RUNTIME as RT;
+// pub(crate) use crate::bot::run::RUNTIME as RT;

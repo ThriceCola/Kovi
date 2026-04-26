@@ -1,4 +1,4 @@
-use crate::types::{ApiAndOneshot, ApiOneshotReceiver, ApiOneshotSender};
+use crate::types::{ApiAndOptOneshot, ApiOneshotReceiver, ApiOneshotSender};
 
 use super::{ApiReturn, Bot, Host, SendApi};
 use log::error;
@@ -23,17 +23,14 @@ pub use kovi_api::SetAdmin;
 /// ```
 #[derive(Clone)]
 pub struct RuntimeBot {
-    pub host: Host,
-    pub port: u16,
-
     pub(crate) bot: Weak<RwLock<Bot>>,
     pub(crate) plugin_name: String,
-    pub api_tx: mpsc::Sender<ApiAndOneshot>,
+    pub api_tx: mpsc::Sender<ApiAndOptOneshot>,
 }
 
 /// 提供给拓展 API 插件开发者的异步 API 请求发送函数，返回一个 Future ，用于等待在 Kovi 中已经缓存好的API响应。
 pub fn send_api_request_with_response(
-    api_tx: &mpsc::Sender<ApiAndOneshot>,
+    api_tx: &mpsc::Sender<ApiAndOptOneshot>,
     send_api: SendApi,
 ) -> impl std::future::Future<Output = Result<ApiReturn, ApiReturn>> {
     let api_rx = send_api_request(api_tx, send_api);
@@ -42,7 +39,7 @@ pub fn send_api_request_with_response(
 
 /// 提供给拓展 API 插件开发者的 API 请求发送函数，返回一个 API 通道，可以用于等待 API 响应。
 pub fn send_api_request(
-    api_tx: &mpsc::Sender<ApiAndOneshot>,
+    api_tx: &mpsc::Sender<ApiAndOptOneshot>,
     send_api: SendApi,
 ) -> ApiOneshotReceiver {
     let (api_tx_, api_rx): (ApiOneshotSender, ApiOneshotReceiver) = oneshot::channel();
@@ -70,7 +67,7 @@ pub fn send_api_request(
 }
 
 /// 提供给拓展 API 插件开发者的 API 请求发送函数，忽略返回值。
-pub fn send_api_request_with_forget(api_tx: &mpsc::Sender<ApiAndOneshot>, send_api: SendApi) {
+pub fn send_api_request_with_forget(api_tx: &mpsc::Sender<ApiAndOptOneshot>, send_api: SendApi) {
     if let Err(e) = api_tx.try_send((send_api, None)) {
         match e {
             mpsc::error::TrySendError::Full(v) => {
@@ -104,7 +101,7 @@ pub async fn send_api_await_response(api_rx: ApiOneshotReceiver) -> Result<ApiRe
 
 /// 实现这个 trait, 让用户方便地发送 API 的方法。
 pub trait CanSendApi {
-    fn __get_api_tx(&self) -> &mpsc::Sender<ApiAndOneshot>;
+    fn __get_api_tx(&self) -> &mpsc::Sender<ApiAndOptOneshot>;
 
     /// 发送拓展 Api, 此方法不关注返回值，返回值将丢弃。
     ///
@@ -139,7 +136,7 @@ pub trait CanSendApi {
 }
 
 impl CanSendApi for RuntimeBot {
-    fn __get_api_tx(&self) -> &mpsc::Sender<ApiAndOneshot> {
+    fn __get_api_tx(&self) -> &mpsc::Sender<ApiAndOptOneshot> {
         &self.api_tx
     }
 }

@@ -1,8 +1,8 @@
 use super::RuntimeBot;
 use crate::error::BotError;
 use crate::plugin::PluginInfo;
-use crate::types::ApiAndOneshot;
-use crate::{Bot, PluginBuilder, RT};
+use crate::types::ApiAndOptOneshot;
+use crate::{Bot, PluginBuilder};
 use parking_lot::RwLock;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -473,15 +473,15 @@ pub(crate) fn disable_plugin<T: AsRef<str>>(
 fn enable_plugin<T: AsRef<str>>(
     bot: Arc<RwLock<Bot>>,
     plugin_name: T,
-    api_tx: mpsc::Sender<ApiAndOneshot>,
+    api_tx: mpsc::Sender<ApiAndOptOneshot>,
 ) -> Result<(), BotError> {
     let bot_read = bot.read();
     let plugin_name = plugin_name.as_ref();
 
-    let (host, port) = {
-        let info = bot_read.information.read();
-        (info.server.host.clone(), info.server.port)
-    };
+    // let (host, port) = {
+    //     let info = bot_read.information.read();
+    //     (info.server.host.clone(), info.server.port)
+    // };
 
     let Some(bot_plugin) = bot_read.plugins.get(plugin_name) else {
         return Err(BotError::PluginNotFound(plugin_name.to_string()));
@@ -493,10 +493,9 @@ fn enable_plugin<T: AsRef<str>>(
 
     let plugin_ = bot_plugin.clone();
 
-    let plugin_builder =
-        PluginBuilder::new(plugin_name.to_string(), bot.clone(), host, port, api_tx);
+    let plugin_builder = PluginBuilder::new(plugin_name.to_string(), bot.clone(), api_tx);
 
-    RT.spawn(async move { plugin_.run(plugin_builder) });
+    tokio::spawn(async move { plugin_.run(plugin_builder) });
 
     Ok(())
 }
