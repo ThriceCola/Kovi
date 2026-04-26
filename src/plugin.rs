@@ -1,4 +1,5 @@
 pub mod plugin_builder;
+pub mod plugin_set;
 
 use crate::PluginBuilder;
 #[cfg(feature = "plugin-access-control")]
@@ -117,6 +118,70 @@ impl Plugin {
     }
 }
 
+/// 黑白名单
+#[cfg(feature = "plugin-access-control")]
+impl Plugin {
+    /// 启动名单
+    pub fn set_access_control(&mut self, enable: bool) {
+        self.access_control = enable;
+    }
+
+    /// 更改名单为其他模式，插件默认为白名单模式
+    pub fn set_access_control_mode(&mut self, access_control_mode: AccessControlMode) {
+        self.list_mode = access_control_mode;
+    }
+
+    /// 添加名单
+    pub fn set_access_control_list(&mut self, is_group: bool, change: SetAccessControlList) {
+        match (change, is_group) {
+            // 添加一个群组到名单
+            (SetAccessControlList::Add(id), true) => {
+                self.access_list.groups.insert(id);
+            }
+            // 添加多个群组到名单
+            (SetAccessControlList::Adds(ids), true) => {
+                for id in ids {
+                    self.access_list.groups.insert(id);
+                }
+            }
+            // 从名单中移除一个群组
+            (SetAccessControlList::Remove(id), true) => {
+                self.access_list.groups.remove(&id);
+            }
+            // 从名单中移除多个群组
+            (SetAccessControlList::Removes(ids), true) => {
+                for id in ids {
+                    self.access_list.groups.remove(&id);
+                }
+            }
+            // 替换名单为新的群组列表
+            (SetAccessControlList::Changes(ids), true) => {
+                self.access_list.groups = ids.into_iter().collect();
+            }
+            // 添加一个用户到名单
+            (SetAccessControlList::Add(id), false) => {
+                self.access_list.friends.insert(id);
+            }
+            // 添加多个用户到名单
+            (SetAccessControlList::Adds(ids), false) => {
+                self.access_list.friends.extend(ids);
+            }
+            // 从名单中移除一个用户
+            (SetAccessControlList::Remove(id), false) => {
+                self.access_list.friends.remove(&id);
+            }
+            // 从名单中移除多个用户
+            (SetAccessControlList::Removes(ids), false) => {
+                self.access_list.friends.retain(|&x| !ids.contains(&x));
+            }
+            // 替换名单为新的用户列表
+            (SetAccessControlList::Changes(ids), false) => {
+                self.access_list.friends = ids.into_iter().collect();
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub(crate) struct PluginStatus {
     pub(crate) enable_on_startup: bool,
@@ -145,4 +210,19 @@ pub struct PluginInfo {
     /// 插件的访问控制列表
     #[cfg(feature = "plugin-access-control")]
     pub access_list: AccessList,
+}
+
+#[cfg(feature = "plugin-access-control")]
+#[derive(Debug, Clone)]
+pub enum SetAccessControlList {
+    /// 增加一个名单
+    Add(i64),
+    /// 增加多个名单
+    Adds(Vec<i64>),
+    /// 移除一个名单
+    Remove(i64),
+    /// 移除多个名单
+    Removes(Vec<i64>),
+    /// 替换名单成此名单
+    Changes(Vec<i64>),
 }

@@ -4,48 +4,44 @@ version = "0.12.7"
 authors = ["ThriceCola <thricecola@hotmail.com>"]
 edition = "2024"
 description = "A OneBot V11 bot plugin framework"
-documentation = "https://thricecola.github.io/kovi-doc/"
-readme = "README_Cargo.md"
-repository = "https://github.com/thricecola/Kovi"
 license = "MPL-2.0"
-keywords = ["framework", "kovi", "onebot"]
+repository = "https://github.com/thricecola/Kovi"
+readme = "README_Cargo.md"
+documentation = "https://thricecola.github.io/kovi-doc/"
+keywords = ["kovi", "onebot", "framework"]
 
 [lib]
 name = "kovi"
 path = "src/lib.rs"
 
 [dependencies]
-ahash = "0.8"
 chrono = "0.4"
-croner = "2"
 dialoguer = { version = "0.11", features = ["fuzzy-select"] }
-env_logger = { version = "0.11", default-features = false, features = [
-  "auto-color",
-  "color",
-], optional = true }
-futures-util = "0.3"
-http = "1"
-kovi-macros = { version = "0.5" }
-log = "0.4"
-parking_lot = "0.12"
-rand = "0.9"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
+log = "0.4"
+kovi-macros = { version = "0.5" }
+env_logger = { version = "0.11", default-features = false, features = [
+    "auto-color",
+    "color",
+], optional = true }
 tokio = { version = "1", features = ["full", "windows-sys"] }
-toml = "0.8"
-toml_edit = "0.22"
 futures = "0.3"
-
+futures-util = "0.3"
+http = "1"
+toml = "0.9"
+toml_edit = "0.23"
+croner = "2.2.0"
+ahash = "0.8"
+parking_lot = "0.12"
 
 [features]
-cqstring = []
-default = ["logger", "plugin-access-control", "save_bot_status"]
+default = ["logger", "save_bot_status", "plugin-access-control"]
 logger = ["env_logger"]
-native-tls-vendored = ["tokio-tungstenite/native-tls-vendored"]
-plugin-access-control = []
-rustls-tls-native-roots = ["tokio-tungstenite/rustls-tls-native-roots"]
-rustls-tls-webpki-roots = ["tokio-tungstenite/rustls-tls-webpki-roots"]
-save_bot_admin = []
 save_bot_status = ["save_bot_admin", "save_plugin_status"]
+save_bot_admin = []
 save_plugin_status = []
+plugin-access-control = []
+
+cqstring = []

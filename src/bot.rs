@@ -20,10 +20,10 @@ use crate::error::{BotBuildError, BotError};
 
 #[cfg(feature = "plugin-access-control")]
 pub use crate::bot::runtimebot::kovi_api::AccessControlMode;
+use crate::plugin::plugin_set::PluginSet;
 
 use crate::plugin::plugin_builder::Listen;
 use crate::plugin::{Plugin, PluginStatus};
-use crate::types::KoviAsyncFn;
 
 pub(crate) mod handler;
 pub(crate) mod run;
@@ -86,35 +86,15 @@ impl Bot {
     }
 
     /// 挂载插件。
-    #[deprecated(since = "0.12.0", note = "请使用 `mount_plugin` 代替")]
-    pub fn mount_main<T>(&mut self, name: T, version: T, main: Arc<KoviAsyncFn>)
-    where
-        String: From<T>,
-    {
-        let name = String::from(name);
-        let version = String::from(version);
-        let (tx, _rx) = watch::channel(true);
-        let bot_plugin = Plugin {
-            enable_on_startup: true,
-            enabled: tx,
-            name: name.clone(),
-            version,
-            main,
-            listen: Listen::default(),
-
-            #[cfg(feature = "plugin-access-control")]
-            access_control: false,
-            #[cfg(feature = "plugin-access-control")]
-            list_mode: AccessControlMode::WhiteList,
-            #[cfg(feature = "plugin-access-control")]
-            access_list: AccessList::default(),
-        };
-        self.plugins.insert(name, bot_plugin);
+    pub fn mount_plugin(&mut self, plugin: Plugin) {
+        self.plugins.insert(plugin.name.clone(), plugin);
     }
 
     /// 挂载插件。
-    pub fn mount_plugin(&mut self, plugin: Plugin) {
-        self.plugins.insert(plugin.name.clone(), plugin);
+    pub fn mount_plugin_set(&mut self, plugin: PluginSet) {
+        for plugin in plugin.set {
+            self.mount_plugin(plugin);
+        }
     }
 
     /// 读取本地Kovi.conf.toml文件
@@ -427,6 +407,7 @@ pub struct BotInformation {
     pub main_admin: i64,
     pub deputy_admins: HashSet<i64>,
 }
+
 /// server信息
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Server {
@@ -434,14 +415,36 @@ pub struct Server {
     pub port: u16,
     pub access_token: String,
     pub secure: bool,
+    /// path route to ws
+    #[serde(default = "default_path")]
+    pub path: String,
+
+    /// all in one single "/" endpoint
+    #[serde(default)]
+    pub all_in_one: bool,
 }
+
+/// when not specified, use "/" instead.
+fn default_path() -> String {
+    "/".into()
+}
+
 impl Server {
-    pub fn new(host: Host, port: u16, access_token: String, secure: bool) -> Self {
+    pub fn new(
+        host: Host,
+        port: u16,
+        access_token: String,
+        secure: bool,
+        path: String,
+        all_in_one: bool,
+    ) -> Self {
         Server {
             host,
             port,
             access_token,
             secure,
+            path,
+            all_in_one,
         }
     }
 }
@@ -487,13 +490,9 @@ impl SendApi {
     }
 
     // pub fn rand_echo() -> String {
-    //     let mut rng = rand::rng();
-    //     let mut s = String::new();
-    //     s.push_str(&chrono::Utc::now().timestamp().to_string());
-    //     for _ in 0..10 {
-    //         s.push(rng.random_range('a'..='z'));
-    //     }
-    //     s
+    //     RandomState::new()
+    //         .hash_one(chrono::Utc::now().timestamp_micros())
+    //         .to_string()
     // }
 }
 
@@ -568,6 +567,12 @@ fn config_file_write_and_return() -> Result<KoviConf, std::io::Error> {
         .interact_text()
         .expect("unreachable");
 
+    let path: String = Input::with_theme(&ColorfulTheme::default())
+        .with_prompt("What is the route path of websocket server?")
+        .default("/".to_string())
+        .interact_text()
+        .expect("unreachable");
+
     // 是否查看更多可选选项
     let more: bool = {
         let items = ["No", "Yes"];
@@ -581,35 +586,33 @@ fn config_file_write_and_return() -> Result<KoviConf, std::io::Error> {
         match select {
             0 => false,
             1 => true,
-            _ => panic!(), //不可能的事情
+            _ => unreachable!(),
         }
     };
 
     let mut secure = false;
+    let mut all_in_one = false;
     if more {
-        // wss https? tls?
-        secure = {
+        fn select_bool(prompt: &str) -> bool {
             let items = vec!["No", "Yes"];
             let select = Select::with_theme(&ColorfulTheme::default())
                 // .with_prompt("Enable secure connection? (HTTPS/WSS)")
-                .with_prompt("Enable secure connection? (WSS)")
+                .with_prompt(prompt)
                 .items(&items)
                 .default(0)
                 .interact()
                 .expect("unreachable");
 
-            match select {
-                0 => false,
-                1 => true,
-                _ => panic!(), //不可能的事情
-            }
-        };
+            select == 1
+        }
+        secure = select_bool("Enable secure connection? (WSS)");
+        all_in_one = select_bool("Use single ws api endpoint?");
     }
 
     let config = KoviConf::new(
         main_admin,
         None,
-        Server::new(host, port, access_token, secure),
+        Server::new(host, port, access_token, secure, path, all_in_one),
         false,
     );
 
@@ -629,11 +632,12 @@ fn config_file_write_and_return() -> Result<KoviConf, std::io::Error> {
     doc["server"] = toml_edit::table();
     doc["server"]["host"] = match &config.server.host {
         Host::IpAddr(ip) => toml_edit::value(ip.to_string()),
-        Host::Domain(domain) => toml_edit::value(domain.clone()),
+        Host::Domain(domain) => toml_edit::value(domain),
     };
     doc["server"]["port"] = toml_edit::value(config.server.port as i64);
-    doc["server"]["access_token"] = toml_edit::value(config.server.access_token.clone());
+    doc["server"]["access_token"] = toml_edit::value(&config.server.access_token);
     doc["server"]["secure"] = toml_edit::value(config.server.secure);
+    doc["server"]["path"] = toml_edit::value(&config.server.path);
 
     let file = fs::File::create("kovi.conf.toml")?;
     let mut writer = std::io::BufWriter::new(file);
