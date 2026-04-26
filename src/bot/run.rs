@@ -3,18 +3,15 @@ mod connect;
 use super::Bot;
 use crate::PluginBuilder;
 use crate::bot::handler::InternalInternalEvent;
-use crate::drive::{Drive, DriveEvent};
-use crate::event::InternalEvent;
-use crate::types::{ApiAndOptOneshot, ApiAndRuturn};
-use futures::StreamExt as _;
+use crate::drive::Drive;
+use crate::types::ApiAndOptOneshot;
 use log::error;
-use parking_lot::{Mutex, RwLock};
+use parking_lot::RwLock;
 use std::borrow::Borrow;
 use std::future::Future;
 use std::process::exit;
 use std::sync::{Arc, LazyLock};
-use tokio::sync::mpsc::{self, Sender};
-use tokio::sync::watch;
+use tokio::sync::{mpsc, watch};
 use tokio::task::JoinHandle;
 
 // pub(crate) static RUNTIME: LazyLock<TokioRuntime> =

@@ -1,6 +1,6 @@
 use crate::types::{ApiAndOptOneshot, ApiOneshotReceiver, ApiOneshotSender};
 
-use super::{ApiReturn, Bot, Host, SendApi};
+use super::{ApiReturn, Bot, SendApi};
 use log::error;
 use parking_lot::RwLock;
 use serde_json::Value;

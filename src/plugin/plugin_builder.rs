@@ -1,5 +1,5 @@
 use crate::bot::runtimebot::RuntimeBot;
-use crate::bot::{Bot, BotInformation, Host};
+use crate::bot::{Bot, BotInformation};
 use crate::event::{Event, InternalEvent};
 use crate::plugin::{PLUGIN_BUILDER, PLUGIN_NAME};
 use crate::types::{ApiAndOptOneshot, NoArgsFn, PinFut};

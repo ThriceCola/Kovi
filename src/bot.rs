@@ -21,8 +21,6 @@ use crate::error::{BotBuildError, BotError};
 #[cfg(feature = "plugin-access-control")]
 pub use crate::bot::runtimebot::kovi_api::AccessControlMode;
 use crate::plugin::plugin_set::PluginSet;
-
-use crate::plugin::plugin_builder::Listen;
 use crate::plugin::{Plugin, PluginStatus};
 
 pub(crate) mod handler;
