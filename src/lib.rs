@@ -9,6 +9,8 @@
 
 /// Everything about bots is inside
 pub mod bot;
+
+pub mod config;
 /// 连接服务端的驱动
 pub mod drive;
 /// 一些错误枚举

@@ -1,10 +1,16 @@
-use crate::bot::*;
+use crate::Bot;
+#[cfg(feature = "plugin-access-control")]
+use crate::bot::AccessControlMode;
+use crate::bot::BotInformation;
+#[cfg(feature = "plugin-access-control")]
+use crate::bot::runtimebot::kovi_api::AccessList;
 use crate::event::{Event, InternalEvent};
 use crate::plugin::PLUGIN_NAME;
 use crate::plugin::plugin_builder::ListenInner;
 use crate::types::ApiAndOptOneshot;
 use parking_lot::RwLock;
 use std::sync::Arc;
+use tokio::sync::{mpsc, watch};
 
 /// Kovi内部事件
 pub(crate) enum InternalInternalEvent {
@@ -285,12 +291,18 @@ struct EventHandler {
 }
 
 #[allow(warnings)]
-type PluginMap<'a> =
-    HashMap<std::any::TypeId, EventHandler, std::hash::BuildHasherDefault<IdHasher>>;
+type PluginMap<'a> = std::collections::HashMap<
+    std::any::TypeId,
+    EventHandler,
+    std::hash::BuildHasherDefault<IdHasher>,
+>;
 
 #[allow(warnings)]
-type TypeEventCacheMap =
-    HashMap<std::any::TypeId, Option<Arc<dyn Event>>, std::hash::BuildHasherDefault<IdHasher>>;
+type TypeEventCacheMap = std::collections::HashMap<
+    std::any::TypeId,
+    Option<Arc<dyn Event>>,
+    std::hash::BuildHasherDefault<IdHasher>,
+>;
 
 /// With TypeIds as keys, there's no need to hash them. They are already hashes
 /// themselves, coming from the compiler. The IdHasher holds the u64 of
