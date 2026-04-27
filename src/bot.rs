@@ -1,22 +1,17 @@
 use ahash::{HashMap, HashMapExt as _, HashSet};
-use dialoguer::theme::ColorfulTheme;
-use dialoguer::{Input, Select};
 use parking_lot::RwLock;
-#[cfg(feature = "plugin-access-control")]
-use runtimebot::kovi_api::AccessList;
+// #[cfg(feature = "plugin-access-control")]
+// use runtimebot::kovi_api::AccessList;
 use serde::{Deserialize, Serialize};
 use serde_json::{self, Value};
 use std::fmt::Debug;
+use std::fs;
 use std::io::Write as _;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::sync::Arc;
-use std::{env, fs};
-use tokio::sync::mpsc::{self};
-use tokio::sync::watch;
 
-use crate::config::config_template::ConfigTemplate;
+use crate::config::kovi_conf::KoviConf;
 use crate::drive::Drive;
-use crate::error::{BotBuildError, BotError};
+use crate::error::BotError;
 
 #[cfg(feature = "plugin-access-control")]
 pub use crate::bot::runtimebot::kovi_api::AccessControlMode;
@@ -68,7 +63,7 @@ impl Bot {
     /// ```
     pub fn build<C, D>(conf_from_template: C, drive: D) -> Bot
     where
-        C: AsRef<ConfigTemplate>,
+        C: AsRef<KoviConf>,
         D: Drive + 'static,
     {
         let conf = conf_from_template.as_ref();

@@ -31,7 +31,7 @@ pub trait Event: Any + Send + Sync {
     ///     fn de(
     ///         event: &InternalEvent,
     ///         _: &BotInformation,
-    ///         _: &tokio::sync::mpsc::Sender<ApiAndOneshot>,
+    ///         _: &tokio::sync::mpsc::Sender<ApiAndOptOneshot>,
     ///     ) -> Option<Self>
     ///     where
     ///         Self: Sized,

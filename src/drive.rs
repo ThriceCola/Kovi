@@ -1,6 +1,5 @@
 use crate::ApiReturn;
 use crate::bot::SendApi;
-use crate::config::runtime_config::RuntimeConfig;
 use futures_util::Stream;
 use serde_json::Value;
 use std::pin::Pin;
@@ -12,11 +11,16 @@ pub enum DriveEvent {
     Normal(Value),
 }
 
+pub type AnyError = Box<dyn std::error::Error + Send + Sync>;
+
+#[async_trait::async_trait]
 pub trait Drive: Send + Sync {
-    fn event_channel(&self) -> Pin<Box<dyn Stream<Item = DriveEvent> + Send>>;
+    async fn event_channel(
+        &self,
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<DriveEvent, AnyError>> + Send>>, AnyError>;
 
     fn api_handler(
         &self,
         value: SendApi,
-    ) -> Pin<Box<dyn Future<Output = Result<ApiReturn, ApiReturn>> + Send>>;
+    ) -> Pin<Box<dyn Future<Output = Result<Result<ApiReturn, ApiReturn>, AnyError>> + Send>>;
 }

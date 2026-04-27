@@ -10,10 +10,26 @@ pub(crate) async fn event_connect(
     self_event_tx: mpsc::Sender<InternalInternalEvent>,
     drive: Arc<dyn Drive>,
 ) {
-    let mut drive_stream = drive.event_channel();
+    let mut drive_stream = match drive.event_channel().await {
+        Ok(drive_stream) => drive_stream,
+        Err(err) => {
+            eprintln!("Failed to get drive event channel: {}", err);
+            self_event_tx.send(InternalInternalEvent::Exit).await.expect("Kovi kernel encountered an unrecoverable error during message forwarding (channel closed)");
+            return;
+        }
+    };
 
     //处理事件，每个事件都会来到这里
     while let Some(event) = drive_stream.next().await {
+        let event = match event {
+            Ok(event) => event,
+            Err(err) => {
+                eprintln!("Failed to get drive event: {}", err);
+                self_event_tx.send(InternalInternalEvent::Exit).await.expect("Kovi kernel encountered an unrecoverable error during message forwarding (channel closed)");
+                return;
+            }
+        };
+
         let internal_event = match event {
             DriveEvent::Exit => InternalInternalEvent::Exit,
             DriveEvent::Normal(value) => {
@@ -48,6 +64,16 @@ async fn send_api_inner(
     let (send_api, oneshot) = api_and_oneshot;
 
     let result = drive.api_handler(send_api.clone()).await;
+
+    let result = match result {
+        Ok(result) => result,
+        Err(err) => {
+            eprintln!("Failed to handle API: {}", err);
+            self_event_tx.send(InternalInternalEvent::Exit).await.expect("Kovi kernel encountered an unrecoverable error during message forwarding (channel closed)");
+            return;
+        }
+    };
+
     if let Some(oneshot) = oneshot {
         oneshot.send(result.clone()).ok();
     }
