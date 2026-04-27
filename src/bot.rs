@@ -370,7 +370,8 @@ pub struct ApiReturn {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct KoviConf {
     pub config: Config,
-    pub server: Server,
+    pub expand: 
+    // pub server: Server,
 }
 
 impl AsRef<KoviConf> for KoviConf {
@@ -387,14 +388,14 @@ pub struct Config {
 }
 
 impl KoviConf {
-    pub fn new(main_admin: i64, admins: Option<Vec<i64>>, server: Server, debug: bool) -> Self {
+    pub fn new(main_admin: i64, admins: Option<Vec<i64>>, debug: bool) -> Self {
         KoviConf {
             config: Config {
                 main_admin,
                 admins: admins.unwrap_or_default(),
                 debug,
             },
-            server,
+            // server,
         }
     }
 }
@@ -404,62 +405,6 @@ impl KoviConf {
 pub struct BotInformation {
     pub main_admin: i64,
     pub deputy_admins: HashSet<i64>,
-}
-
-/// server信息
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct Server {
-    pub host: Host,
-    pub port: u16,
-    pub access_token: String,
-    pub secure: bool,
-    /// path route to ws
-    #[serde(default = "default_path")]
-    pub path: String,
-
-    /// all in one single "/" endpoint
-    #[serde(default)]
-    pub all_in_one: bool,
-}
-
-/// when not specified, use "/" instead.
-fn default_path() -> String {
-    "/".into()
-}
-
-impl Server {
-    pub fn new(
-        host: Host,
-        port: u16,
-        access_token: String,
-        secure: bool,
-        path: String,
-        all_in_one: bool,
-    ) -> Self {
-        Server {
-            host,
-            port,
-            access_token,
-            secure,
-            path,
-            all_in_one,
-        }
-    }
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone)]
-#[serde(untagged)]
-pub enum Host {
-    IpAddr(IpAddr),
-    Domain(String),
-}
-impl Display for Host {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Host::IpAddr(ip) => write!(f, "{ip}"),
-            Host::Domain(domain) => write!(f, "{domain}"),
-        }
-    }
 }
 
 impl std::fmt::Display for ApiReturn {
@@ -486,12 +431,6 @@ impl SendApi {
             // echo: Self::rand_echo(),
         }
     }
-
-    // pub fn rand_echo() -> String {
-    //     RandomState::new()
-    //         .hash_one(chrono::Utc::now().timestamp_micros())
-    //         .to_string()
-    // }
 }
 
 /// 将配置文件写入磁盘
@@ -608,9 +547,8 @@ fn config_file_write_and_return() -> Result<KoviConf, std::io::Error> {
     }
 
     let config = KoviConf::new(
-        main_admin,
-        None,
-        Server::new(host, port, access_token, secure, path, all_in_one),
+        main_admin, None,
+        // Server::new(host, port, access_token, secure, path, all_in_one),
         false,
     );
 
