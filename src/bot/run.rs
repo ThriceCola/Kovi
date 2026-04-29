@@ -3,7 +3,6 @@ mod connect;
 use super::Bot;
 use crate::PluginBuilder;
 use crate::bot::handler::InternalInternalEvent;
-use crate::drive::Drive;
 use crate::types::ApiAndOptOneshot;
 use log::error;
 use parking_lot::RwLock;
@@ -33,14 +32,11 @@ impl Bot {
     ///
     /// **注意此函数会阻塞, 直到Bot连接失效，或者有退出信号传入程序**
     pub async fn run(self) {
-        let drive = self.drive.clone();
-
         let bot = Arc::new(RwLock::new(self));
-
-        Self::hander_event(bot, drive).await;
+        Self::hander_event(bot).await;
     }
 
-    async fn hander_event(bot: Arc<RwLock<Bot>>, drive: Arc<dyn Drive>) {
+    async fn hander_event(bot: Arc<RwLock<Bot>>) {
         //处理连接，从msg_tx返回消息
         let (self_event_tx, mut self_event_rx): (
             mpsc::Sender<InternalInternalEvent>,
@@ -55,6 +51,7 @@ impl Bot {
 
         {
             let mut bot_write = bot.write();
+            let drive = bot_write.drive.clone();
 
             // // drop检测
             // bot_write.spawn({

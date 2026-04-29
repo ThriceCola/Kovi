@@ -17,6 +17,7 @@ pub mod drive;
 pub mod error;
 /// 控制台输出日志
 pub mod logger;
+pub mod message;
 /// 关于插件的一切
 pub mod plugin;
 /// task 提供 kovi 运行时的多线程处理

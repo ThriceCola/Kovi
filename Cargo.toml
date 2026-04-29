@@ -43,5 +43,3 @@ plugin-access-control = []
 save_bot_admin = []
 save_bot_status = ["save_bot_admin", "save_plugin_status"]
 save_plugin_status = []
-
-cqstring = []

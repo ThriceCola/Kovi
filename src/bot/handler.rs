@@ -102,12 +102,6 @@ impl Bot {
 
         drop(bot_read);
 
-        // TODO： 由于onebot拆分所以这里作为一个打印bot启动日志的服务暂时注释掉
-        // let msg_event = MsgEvent::de(&msg, &info.read(), &api_tx).map(|e| {
-        //     log_msg_event(&e);
-        //     Arc::new(e)
-        // });
-
         struct SharedData {
             msg: InternalEvent,
             api_tx: mpsc::Sender<ApiAndOptOneshot>,
