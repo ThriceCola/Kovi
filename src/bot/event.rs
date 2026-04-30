@@ -1,8 +1,9 @@
 use serde_json::Value;
 
 use crate::bot::BotInformation;
-use crate::types::{ApiAndOptOneshot, ApiAndRuturn};
+use crate::types::{ApiAndOptOneshot, ApiAndRuturn, ArcTypeDeFn};
 use std::any::Any;
+use std::sync::Arc;
 
 /// 满足此 trait 即可在Kovi运行时中监听并处理
 ///
@@ -75,9 +76,74 @@ pub trait Event: Any + Send + Sync {
 }
 
 /// 事件
+#[derive(Debug, Clone)]
 pub enum InternalEvent {
     /// 来自OneBot的事件
     OneBotEvent(Value),
     /// 来自Kovi发送给服务端并包含了返回结果
     OneBotApiEvent(ApiAndRuturn),
+}
+
+pub trait MessageEventTrait {
+    fn get_sender_name(&self) -> Option<&str>;
+
+    fn get_sender_id(&self) -> Option<RefId<'_>>;
+
+    fn get_message_text(&self) -> Option<&str>;
+
+    fn get_message_type_str(&self) -> Option<&str>;
+
+    fn get_ref_group_id(&self) -> Option<RefId>;
+
+    fn get_ref_private_id(&self) -> Option<RefId>;
+}
+
+#[derive(Debug, Clone)]
+pub struct RefId<'r> {
+    pub inner: IdInner<'r>,
+}
+
+impl RefId<'_> {
+    pub fn new<'s, T: CanRefUserId>(inner: &'s T) -> RefId<'s> {
+        let inner = inner.as_ref_user_id();
+        RefId { inner }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
+pub enum IdInner<'r> {
+    Int(&'r i64),
+    String(&'r String),
+    Str(&'r str),
+}
+
+pub trait CanRefUserId: Sized {
+    fn as_ref_user_id<'s>(&'s self) -> IdInner<'s>;
+}
+
+impl CanRefUserId for i64 {
+    fn as_ref_user_id<'s>(&'s self) -> IdInner<'s> {
+        IdInner::Int(self)
+    }
+}
+impl CanRefUserId for String {
+    fn as_ref_user_id<'s>(&'s self) -> IdInner<'s> {
+        IdInner::String(self)
+    }
+}
+
+impl<T: CanRefUserId> CanRefUserId for &T {
+    fn as_ref_user_id(&self) -> IdInner<'_> {
+        (*self).as_ref_user_id()
+    }
+}
+
+#[test]
+fn test_ref_user_id() {
+    let id = RefId::new(&123);
+    assert_eq!(id.inner, IdInner::Int(&123));
+
+    let str = "test".to_string();
+    let id = RefId::new(&str);
+    assert_eq!(id.inner, IdInner::String(&"test".to_string()));
 }

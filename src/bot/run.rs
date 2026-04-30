@@ -2,7 +2,7 @@ mod connect;
 
 use super::Bot;
 use crate::PluginBuilder;
-use crate::bot::handler::InternalInternalEvent;
+use crate::bot::handler::{ExitEvent, InternalInternalEvent};
 use crate::types::ApiAndOptOneshot;
 use log::error;
 use parking_lot::RwLock;
@@ -53,11 +53,8 @@ impl Bot {
             let mut bot_write = bot.write();
             let drive = bot_write.drive.clone();
 
-            // // drop检测
-            // bot_write.spawn({
-            //     let event_tx = event_tx;
-            //     exit_signal_check(event_tx)
-            // });
+            // drop检测
+            bot_write.spawn(exit_signal_check(self_event_tx.clone()));
 
             bot_write.spawn(connect::event_connect(self_event_tx.clone(), drive.clone()));
 
@@ -82,9 +79,18 @@ impl Bot {
             let bot = bot.clone();
 
             // Drop为关闭事件，所以要等待，其他的不等待
-            if let InternalInternalEvent::Exit = event {
-                drop_task = Some(tokio::spawn(Self::handler_event(bot, event, self_api_tx)));
-                break;
+            if let InternalInternalEvent::Exit(exit_event) = &event {
+                drop_task = Some(tokio::spawn(Self::handler_event(
+                    bot,
+                    event.clone(),
+                    self_api_tx,
+                )));
+                match exit_event {
+                    ExitEvent::FromDrive => {
+                        break;
+                    }
+                    ExitEvent::FromSignal => handler_second_time_exit_signal(),
+                }
             } else {
                 tokio::spawn(Self::handler_event(bot, event, self_api_tx));
             }
@@ -139,7 +145,7 @@ impl ExitCheck {
 
             Self::await_exit_signal().await;
 
-            handler_second_time_exit_signal().await;
+            handler_second_time_exit_signal();
         });
 
         ExitCheck {
@@ -195,14 +201,14 @@ impl ExitCheck {
     }
 }
 
-// pub(crate) async fn exit_signal_check(tx: Sender<InternalInternalEvent>) {
-//     DROP_CHECK.await_exit_signal_change().await;
+pub(crate) async fn exit_signal_check(tx: mpsc::Sender<InternalInternalEvent>) {
+    DROP_CHECK.await_exit_signal_change().await;
 
-//     tx.send(InternalInternalEvent::KoviEvent(KoviEvent::Drop))
-//         .await
-//         .expect("The exit signal send failed");
-// }
+    tx.send(InternalInternalEvent::Exit(ExitEvent::FromSignal))
+        .await
+        .expect("The exit signal send failed");
+}
 
-async fn handler_second_time_exit_signal() {
+fn handler_second_time_exit_signal() {
     exit(1)
 }

@@ -4,18 +4,29 @@ use crate::bot::AccessControlMode;
 use crate::bot::BotInformation;
 #[cfg(feature = "plugin-access-control")]
 use crate::bot::runtimebot::kovi_api::AccessList;
+use crate::drive::Drive;
+#[cfg(feature = "plugin-access-control")]
+use crate::event::MessageEventTrait;
 use crate::event::{Event, InternalEvent};
 use crate::plugin::PLUGIN_NAME;
 use crate::plugin::plugin_builder::ListenInner;
 use crate::types::ApiAndOptOneshot;
 use parking_lot::RwLock;
+use std::any::TypeId;
 use std::sync::Arc;
 use tokio::sync::{mpsc, watch};
 
 /// Kovi内部事件
+#[derive(Clone)]
 pub(crate) enum InternalInternalEvent {
-    Exit,
-    OneBotEvent(InternalEvent),
+    Exit(ExitEvent),
+    OneBotEvent(Box<InternalEvent>),
+}
+
+#[derive(Clone)]
+pub(crate) enum ExitEvent {
+    FromDrive,
+    FromSignal,
 }
 
 impl Bot {
@@ -25,9 +36,9 @@ impl Bot {
         api_tx: mpsc::Sender<ApiAndOptOneshot>,
     ) {
         match event {
-            InternalInternalEvent::Exit => Self::handle_kovi_exit(bot).await,
+            InternalInternalEvent::Exit(_) => Self::handle_kovi_exit(bot).await,
             InternalInternalEvent::OneBotEvent(msg) => {
-                Self::handler_internal_event(bot, msg, api_tx).await
+                Self::handler_internal_event(bot, *msg, api_tx).await
             }
         }
     }
@@ -127,31 +138,32 @@ impl Bot {
 
         async fn type_handler(
             // TODO： 由于onebot拆分所以这里暂时注释掉
-            // type_id: TypeId,
+            type_id: TypeId,
             plugin_map: EventHandler,
+            drive: Arc<dyn Drive>,
             // TODO： 由于onebot拆分所以这里作为一个plugin-access-control的服务暂时注释掉
-            // msg_event: Option<Arc<MsgEvent>>,
+            msg_event: Option<Arc<MsgEvent>>,
             shared_data: Arc<SharedData>,
         ) {
             // TODO： 由于onebot拆分所以这里暂时注释掉
-            // let mut event_cache = if type_id == TypeId::of::<MsgEvent>() {
-            //     msg_event.clone().map(|arc| arc as Arc<dyn Event>)
-            // } else {
-            //     None
-            // };
+            let mut event_cache = if type_id == TypeId::of::<MsgEvent>() {
+                msg_event.clone().map(|arc| arc as Arc<dyn Event>)
+            } else {
+                None
+            };
 
             let mut event_cache: Option<Arc<dyn Event>> = None;
             for (name, plugin_vec) in plugin_map.plugins.into_iter() {
                 let plugin_cache = &shared_data.plugin_cache[&name];
 
                 // TODO： 由于onebot拆分所以这里作为一个plugin-access-control的服务暂时注释掉
-                // #[cfg(feature = "plugin-access-control")]
-                // if let Some(event) = &msg_event {
-                //     // 判断是否黑白名单
-                //     if !is_access(&plugin_cache.acc, event) {
-                //         continue;
-                //     }
-                // }
+                #[cfg(feature = "plugin-access-control")]
+                if let Some(event) = &msg_event {
+                    // 判断是否黑白名单
+                    if !is_access(&plugin_cache.acc, event) {
+                        continue;
+                    }
+                }
 
                 for listen in plugin_vec {
                     let event = match &event_cache {
@@ -198,7 +210,7 @@ impl Bot {
             }
         }
 
-        // TODO： 由于onebot拆分所以这里作为一个打印bot启动日志的服务暂时注释掉
+        // // TODO： 由于onebot拆分所以这里作为一个打印bot启动日志的服务暂时注释掉
         // fn log_msg_event(event: &MsgEvent) {
         //     info!(
         //         "[{message_type}{group_id}{nickname} {id}]: {text}",
@@ -252,31 +264,31 @@ impl AccCache {
     }
 }
 
-// TODO： 由于onebot拆分所以这里作为一个plugin-access-control的服务暂时注释掉
-// #[cfg(feature = "plugin-access-control")]
-// fn is_access(plugin: &AccCache, event: &MsgEvent) -> bool {
-//     if !plugin.access_control {
-//         return true;
-//     }
+//TODO： 由于onebot拆分所以这里作为一个plugin-access-control的服务暂时注释掉
+#[cfg(feature = "plugin-access-control")]
+fn is_access(plugin: &AccCache, event: impl MessageEventTrait) -> bool {
+    if !plugin.access_control {
+        return true;
+    }
 
-//     let access_list = &plugin.access_list;
-//     let in_group = event.is_group();
+    let access_list = &plugin.access_list;
+    let in_group = event.is_group();
 
-//     match (plugin.list_mode, in_group) {
-//         (AccessControlMode::WhiteList, true) => access_list
-//             .groups
-//             .contains(event.group_id.as_ref().expect("unreachable")),
-//         (AccessControlMode::WhiteList, false) => {
-//             access_list.friends.contains(&event.sender.user_id)
-//         }
-//         (AccessControlMode::BlackList, true) => !access_list
-//             .groups
-//             .contains(event.group_id.as_ref().expect("unreachable")),
-//         (AccessControlMode::BlackList, false) => {
-//             !access_list.friends.contains(&event.sender.user_id)
-//         }
-//     }
-// }
+    match (plugin.list_mode, in_group) {
+        (AccessControlMode::WhiteList, true) => access_list
+            .groups
+            .contains(event.group_id.as_ref().expect("unreachable")),
+        (AccessControlMode::WhiteList, false) => {
+            access_list.friends.contains(&event.sender.user_id)
+        }
+        (AccessControlMode::BlackList, true) => !access_list
+            .groups
+            .contains(event.group_id.as_ref().expect("unreachable")),
+        (AccessControlMode::BlackList, false) => {
+            !access_list.friends.contains(&event.sender.user_id)
+        }
+    }
+}
 
 #[allow(dead_code)]
 #[derive(Default)]

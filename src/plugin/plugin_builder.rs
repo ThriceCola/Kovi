@@ -1,8 +1,8 @@
+use crate::bot::Bot;
 use crate::bot::runtimebot::RuntimeBot;
-use crate::bot::{Bot, BotInformation};
-use crate::event::{Event, InternalEvent};
+use crate::event::Event;
 use crate::plugin::{PLUGIN_BUILDER, PLUGIN_NAME};
-use crate::types::{ApiAndOptOneshot, NoArgsFn, PinFut};
+use crate::types::{ApiAndOptOneshot, ArcTypeDeFn, NoArgsFn, PinFut};
 use croner::Cron;
 use croner::errors::CronError;
 use log::error;
@@ -48,15 +48,6 @@ impl Listen {
         self.drop.shrink_to_fit();
     }
 }
-type ArcTypeDeFn = Arc<
-    dyn Fn(
-            &InternalEvent,
-            &BotInformation,
-            &mpsc::Sender<ApiAndOptOneshot>,
-        ) -> Option<Arc<dyn Event>>
-        + Send
-        + Sync,
->;
 
 #[derive(Clone)]
 pub(crate) struct ListenInner {

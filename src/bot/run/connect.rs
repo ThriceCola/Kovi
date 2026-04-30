@@ -1,4 +1,4 @@
-use crate::bot::handler::InternalInternalEvent;
+use crate::bot::handler::{ExitEvent, InternalInternalEvent};
 use crate::drive::{Drive, DriveEvent};
 use crate::event::InternalEvent;
 use crate::types::ApiAndOptOneshot;
@@ -14,7 +14,7 @@ pub(crate) async fn event_connect(
         Ok(drive_stream) => drive_stream,
         Err(err) => {
             eprintln!("Failed to get drive event channel: {}", err);
-            self_event_tx.send(InternalInternalEvent::Exit).await.expect("Kovi kernel encountered an unrecoverable error during message forwarding (channel closed)");
+            self_event_tx.send(InternalInternalEvent::Exit(ExitEvent::FromDrive)).await.expect("Kovi kernel encountered an unrecoverable error during message forwarding (channel closed)");
             return;
         }
     };
@@ -25,15 +25,15 @@ pub(crate) async fn event_connect(
             Ok(event) => event,
             Err(err) => {
                 eprintln!("Failed to get drive event: {}", err);
-                self_event_tx.send(InternalInternalEvent::Exit).await.expect("Kovi kernel encountered an unrecoverable error during message forwarding (channel closed)");
+                self_event_tx.send(InternalInternalEvent::Exit(ExitEvent::FromDrive)).await.expect("Kovi kernel encountered an unrecoverable error during message forwarding (channel closed)");
                 return;
             }
         };
 
         let internal_event = match event {
-            DriveEvent::Exit => InternalInternalEvent::Exit,
+            DriveEvent::Exit => InternalInternalEvent::Exit(ExitEvent::FromDrive),
             DriveEvent::Normal(value) => {
-                InternalInternalEvent::OneBotEvent(InternalEvent::OneBotEvent(value))
+                InternalInternalEvent::OneBotEvent(Box::new(InternalEvent::OneBotEvent(value)))
             }
         };
 
@@ -69,7 +69,7 @@ async fn send_api_inner(
         Ok(result) => result,
         Err(err) => {
             eprintln!("Failed to handle API: {}", err);
-            self_event_tx.send(InternalInternalEvent::Exit).await.expect("Kovi kernel encountered an unrecoverable error during message forwarding (channel closed)");
+            self_event_tx.send(InternalInternalEvent::Exit(ExitEvent::FromDrive)).await.expect("Kovi kernel encountered an unrecoverable error during message forwarding (channel closed)");
             return;
         }
     };
@@ -80,7 +80,7 @@ async fn send_api_inner(
 
     self_event_tx
         .send(InternalInternalEvent::OneBotEvent(
-            InternalEvent::OneBotApiEvent((send_api, result)),
+           Box::new(InternalEvent::OneBotApiEvent((send_api, result))),
         ))
         .await.expect("Kovi kernel encountered an unrecoverable error during message forwarding (channel closed)");
 }
