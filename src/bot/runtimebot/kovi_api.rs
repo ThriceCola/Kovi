@@ -1,4 +1,5 @@
 use super::RuntimeBot;
+use crate::bot::BotInformation;
 use crate::error::BotError;
 use crate::event::id::ID;
 use crate::plugin::PluginInfo;
@@ -164,28 +165,29 @@ impl RuntimeBot {
             Some(b) => b,
             None => return Err(BotError::RefExpired),
         };
-
         let bot = bot.read();
+        let mut bot_info_lock = bot.information.write();
+        let main_admin = bot_info_lock.get_main_admin().clone();
+        let mut deputy_admins = bot_info_lock.get_deputy_admins().clone();
         match change {
             SetAdmin::Add(id) => {
-                bot.information.write().deputy_admins.insert(id);
+                deputy_admins.insert(id);
             }
             SetAdmin::Adds(ids) => {
-                bot.information.write().deputy_admins.extend(ids);
+                deputy_admins.extend(ids);
             }
             SetAdmin::Remove(id) => {
-                bot.information.write().deputy_admins.remove(&id);
+                deputy_admins.remove(&id);
             }
             SetAdmin::Removes(ids) => {
-                bot.information
-                    .write()
-                    .deputy_admins
-                    .retain(|x| !ids.contains(&x));
+                deputy_admins.retain(|x| !ids.contains(&x));
             }
             SetAdmin::Changes(ids) => {
-                bot.information.write().deputy_admins = ids.into_iter().collect();
+                deputy_admins = ids.into_iter().collect();
             }
         }
+
+        *bot_info_lock = BotInformation::build(main_admin, deputy_admins);
 
         Ok(())
     }
@@ -202,7 +204,7 @@ impl RuntimeBot {
             None => return Err(BotError::RefExpired),
         };
 
-        let id = bot.read().information.read().main_admin.clone();
+        let id = bot.read().information.read().get_main_admin().clone();
         Ok(id)
     }
 
@@ -218,7 +220,7 @@ impl RuntimeBot {
             None => return Err(BotError::RefExpired),
         };
 
-        let ids = bot.read().information.read().deputy_admins.clone();
+        let ids = bot.read().information.read().get_deputy_admins().clone();
         Ok(ids.into_iter().collect())
     }
 
@@ -238,9 +240,9 @@ impl RuntimeBot {
 
         let bot = bot.read();
 
-        admins.push(bot.information.read().main_admin.clone());
+        admins.push(bot.information.read().get_main_admin().clone());
 
-        admins.extend(bot.information.read().deputy_admins.clone());
+        admins.extend(bot.information.read().get_deputy_admins().clone());
 
         Ok(admins)
     }

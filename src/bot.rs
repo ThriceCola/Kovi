@@ -1,4 +1,5 @@
 use ahash::{HashMap, HashMapExt as _, HashSet};
+use ouroboros::self_referencing;
 use parking_lot::RwLock;
 // #[cfg(feature = "plugin-access-control")]
 // use runtimebot::kovi_api::AccessList;
@@ -16,6 +17,7 @@ use crate::error::BotError;
 #[cfg(feature = "plugin-access-control")]
 pub use crate::bot::runtimebot::kovi_api::AccessControlMode;
 use crate::event::id::ID;
+use crate::event::id::ref_id::RefID;
 use crate::plugin::plugin_set::PluginSet;
 use crate::plugin::{Plugin, PluginStatus};
 
@@ -68,11 +70,21 @@ impl Bot {
     {
         let conf = conf_from_template.as_ref();
 
+        let bot_info = BotInformationBuilder {
+            main_admin_id_cache: conf.config.main_admin.clone(),
+            deputy_admins_id_cache: conf.config.admins.iter().cloned().map(|v| v).collect(),
+            main_admin_builder: |v| v.into(),
+            deputy_admins_builder: |v| v.into_iter().map(|v| v.into()).collect(),
+            all_admins_builder: |m, d| {
+                let mut set: HashSet<RefID<'_>> = d.into_iter().map(|v| v.into()).collect();
+                set.insert(m.into());
+                set
+            },
+        }
+        .build();
+
         Bot {
-            information: Arc::new(RwLock::new(BotInformation {
-                main_admin: conf.config.main_admin.clone(),
-                deputy_admins: conf.config.admins.iter().cloned().collect(),
-            })),
+            information: Arc::new(RwLock::new(bot_info)),
             drive: Arc::new(drive),
             plugins: HashMap::<_, _>::new(),
             run_abort: Vec::new(),
@@ -284,7 +296,10 @@ impl Bot {
 
             let (main_admin, deputy_admins) = {
                 let info = self.information.read();
-                (info.main_admin.clone(), info.deputy_admins.clone())
+                (
+                    info.get_main_admin().clone(),
+                    info.get_deputy_admins().clone(),
+                )
             };
 
             // 更新 "config" 中的 admin 信息
@@ -315,7 +330,6 @@ impl Bot {
 pub struct SendApi {
     pub action: String,
     pub params: Value,
-    // echo: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -326,10 +340,68 @@ pub struct ApiReturn {
 }
 
 /// bot信息结构体
-#[derive(Debug, Clone)]
+
+#[self_referencing]
+#[derive(Debug)]
 pub struct BotInformation {
-    pub main_admin: ID,
-    pub deputy_admins: HashSet<ID>,
+    main_admin_id_cache: ID,
+    deputy_admins_id_cache: HashSet<ID>,
+
+    #[borrows(main_admin_id_cache)]
+    #[not_covariant]
+    main_admin: RefID<'this>,
+    #[borrows(deputy_admins_id_cache)]
+    #[not_covariant]
+    deputy_admins: HashSet<RefID<'this>>,
+
+    #[borrows(main_admin_id_cache, deputy_admins_id_cache)]
+    #[not_covariant]
+    all_admins: HashSet<RefID<'this>>,
+}
+impl BotInformation {
+    pub fn build(main_admin: ID, deputy_admins: HashSet<ID>) -> BotInformation {
+        BotInformationBuilder {
+            main_admin_id_cache: main_admin,
+            deputy_admins_id_cache: deputy_admins.into_iter().map(|v| v).collect(),
+            main_admin_builder: |v| v.into(),
+            deputy_admins_builder: |v| v.into_iter().map(|v| v.into()).collect(),
+            all_admins_builder: |m, d| {
+                let mut set: HashSet<RefID<'_>> = d.into_iter().map(|v| v.into()).collect();
+                set.insert(m.into());
+                set
+            },
+        }
+        .build()
+    }
+
+    pub fn main_admin_eq(&self, id: RefID<'_>) -> bool {
+        let main_admin = self.get_main_admin_ref_id();
+        *main_admin == id
+    }
+    pub fn deputy_admins_contains(&self, id: RefID<'_>) -> bool {
+        let admins = self.get_deputy_admins_ref_id();
+        admins.contains(&id)
+    }
+    pub fn any_admins_contains(&self, id: RefID<'_>) -> bool {
+        let admins = self.get_all_admins_ref_id();
+        admins.contains(&id)
+    }
+
+    pub fn get_main_admin(&self) -> &ID {
+        self.borrow_main_admin_id_cache()
+    }
+    pub fn get_deputy_admins(&self) -> &HashSet<ID> {
+        self.borrow_deputy_admins_id_cache()
+    }
+    pub fn get_all_admins_ref_id(&self) -> &HashSet<RefID<'_>> {
+        self.with_all_admins(|v| v)
+    }
+    pub fn get_main_admin_ref_id(&self) -> &RefID<'_> {
+        self.with_main_admin(|v| v)
+    }
+    pub fn get_deputy_admins_ref_id(&self) -> &HashSet<RefID<'_>> {
+        self.with_deputy_admins(|v| v)
+    }
 }
 
 impl std::fmt::Display for ApiReturn {

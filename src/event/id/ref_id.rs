@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 
-use crate::event::id::ID;
+use crate::event::id::{ID, IDInner};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RefID<'r> {
@@ -163,6 +163,18 @@ impl From<RefID<'_>> for serde_json::Value {
         match value.inner {
             RefIDInner::Int(v) => (*v).into(),
             RefIDInner::String(v) => v.into(),
+        }
+    }
+}
+impl<'s> From<&'s ID> for RefID<'s> {
+    fn from(value: &'s ID) -> Self {
+        match &value.inner {
+            IDInner::Int(int) => RefID {
+                inner: RefIDInner::Int(int),
+            },
+            IDInner::String(str) => RefID {
+                inner: RefIDInner::String(str),
+            },
         }
     }
 }

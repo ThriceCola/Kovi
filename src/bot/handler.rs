@@ -146,7 +146,6 @@ impl Bot {
             for (name, plugin_vec) in plugin_map.plugins.into_iter() {
                 let plugin_cache = &shared_data.plugin_cache[&name];
 
-                // TODO： 由于onebot拆分所以这里作为一个plugin-access-control的服务暂时注释掉
                 #[cfg(feature = "plugin-access-control")]
                 if let Some(event) = &msg_event {
                     // 判断是否黑白名单
@@ -200,7 +199,6 @@ impl Bot {
             }
         }
 
-        // TODO： 由于onebot拆分所以这里作为一个打印bot启动日志的服务暂时注释掉
         fn log_msg_event<T: MessageEventTrait + ?Sized>(event: &T) {
             let message_type = event.get_message_type_str().unwrap_or_default();
             let group_id = match event.get_ref_group_id() {
@@ -253,7 +251,6 @@ impl AccCache {
     }
 }
 
-//TODO： 由于onebot拆分所以这里作为一个plugin-access-control的服务暂时注释掉
 #[cfg(feature = "plugin-access-control")]
 fn is_access<T: MessageEventTrait + ?Sized>(plugin: &AccCache, event: &T) -> bool {
     if !plugin.access_control {
