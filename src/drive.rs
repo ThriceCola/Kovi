@@ -1,10 +1,9 @@
 use crate::ApiReturn;
 use crate::bot::SendApi;
 use crate::event::MessageEventTrait;
-use crate::types::ArcTypeDeFn;
+use crate::types::ArcTypeDeMsgEventFn;
 use futures_util::Stream;
 use serde_json::Value;
-use std::fmt::Display;
 use std::pin::Pin;
 use std::sync::Arc;
 
@@ -32,13 +31,11 @@ pub trait Drive: Send + Sync {
 }
 
 pub struct MessageEventRegister {
-    pub(crate) type_id: std::any::TypeId,
-    pub(crate) type_de: ArcTypeDeFn,
+    pub(crate) type_de: ArcTypeDeMsgEventFn,
 }
 impl MessageEventRegister {
-    pub fn register<T: crate::event::Event + MessageEventTrait + Send + Sync>() -> Self {
+    pub fn register<T: MessageEventTrait + Send + Sync>() -> Self {
         MessageEventRegister {
-            type_id: std::any::TypeId::of::<T>(),
             type_de: Arc::new(|value, bot_info, sender| {
                 Some(Arc::new(T::de(value, bot_info, sender)?))
             }),

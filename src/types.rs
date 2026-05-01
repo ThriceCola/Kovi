@@ -1,6 +1,6 @@
 use crate::ApiReturn;
 use crate::bot::{BotInformation, SendApi};
-use crate::event::{Event, InternalEvent};
+use crate::event::{Event, InternalEvent, MessageEventTrait};
 use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot};
@@ -11,6 +11,15 @@ pub(crate) type ArcTypeDeFn = Arc<
             &BotInformation,
             &mpsc::Sender<ApiAndOptOneshot>,
         ) -> Option<Arc<dyn Event>>
+        + Send
+        + Sync,
+>;
+pub(crate) type ArcTypeDeMsgEventFn = Arc<
+    dyn Fn(
+            &InternalEvent,
+            &BotInformation,
+            &mpsc::Sender<ApiAndOptOneshot>,
+        ) -> Option<Arc<dyn MessageEventTrait>>
         + Send
         + Sync,
 >;

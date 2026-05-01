@@ -6,6 +6,7 @@ use std::path::Path;
 use std::{env, fs};
 
 use crate::error::BotBuildError;
+use crate::event::id::ID;
 
 /// 配置
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -15,13 +16,13 @@ pub struct KoviConf {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Config {
-    pub main_admin: i64,
-    pub admins: Vec<i64>,
+    pub main_admin: ID,
+    pub admins: Vec<ID>,
     pub debug: bool,
 }
 
 impl KoviConf {
-    pub fn new(main_admin: i64, admins: Option<Vec<i64>>, debug: bool) -> Self {
+    pub fn new(main_admin: ID, admins: Option<Vec<ID>>, debug: bool) -> Self {
         KoviConf {
             config: Config {
                 main_admin,
@@ -40,11 +41,43 @@ impl AsRef<KoviConf> for KoviConf {
 
 /// 将配置文件写入磁盘
 fn read_from_path_config_write_and_return(file_path: &Path) -> Result<KoviConf, std::io::Error> {
-    let main_admin: i64 = Input::with_theme(&ColorfulTheme::default())
+    let main_admin: String = Input::with_theme(&ColorfulTheme::default())
         .with_prompt("What is the ID of the main administrator? (Not used yet)")
         .allow_empty(true)
         .interact_text()
         .expect("unreachable");
+
+    let main_admin_try_parse_int = main_admin.parse::<i64>();
+
+    let main_admin = match main_admin_try_parse_int {
+        Err(_) => ID::new(main_admin),
+        Ok(v) => {
+            enum IDType {
+                Int,
+                String,
+            }
+            let id_type: IDType = {
+                let items = ["Int", "String"];
+                let select = dialoguer::Select::with_theme(&ColorfulTheme::default())
+                    .with_prompt("What is the type of the ID?")
+                    .items(&items)
+                    .default(0)
+                    .interact()
+                    .expect("unreachable");
+
+                match select {
+                    0 => IDType::Int,
+                    1 => IDType::String,
+                    _ => panic!(), // 不可能的事情
+                }
+            };
+
+            match id_type {
+                IDType::Int => ID::new(v),
+                IDType::String => ID::new(main_admin),
+            }
+        }
+    };
 
     let config = KoviConf::new(
         main_admin, None,
@@ -68,13 +101,13 @@ fn read_from_path_config_write_and_return(file_path: &Path) -> Result<KoviConf, 
 
     // Ensure we have a config table and set values
     doc["config"] = toml_edit::table();
-    doc["config"]["main_admin"] = toml_edit::value(config.config.main_admin);
+    doc["config"]["main_admin"] = toml_edit::value(config.config.main_admin.clone());
     doc["config"]["admins"] = toml_edit::Item::Value(toml_edit::Value::Array(
         config
             .config
             .admins
             .iter()
-            .map(|&x| toml_edit::Value::from(x))
+            .map(|x| toml_edit::Value::from(x.clone()))
             .collect(),
     ));
     doc["config"]["debug"] = toml_edit::value(config.config.debug);

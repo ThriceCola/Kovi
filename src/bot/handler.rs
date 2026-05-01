@@ -4,7 +4,6 @@ use crate::bot::AccessControlMode;
 use crate::bot::BotInformation;
 #[cfg(feature = "plugin-access-control")]
 use crate::bot::runtimebot::kovi_api::AccessList;
-use crate::drive::Drive;
 #[cfg(feature = "plugin-access-control")]
 use crate::event::MessageEventTrait;
 use crate::event::{Event, InternalEvent};
@@ -12,7 +11,6 @@ use crate::plugin::PLUGIN_NAME;
 use crate::plugin::plugin_builder::ListenInner;
 use crate::types::ApiAndOptOneshot;
 use parking_lot::RwLock;
-use std::any::TypeId;
 use std::sync::Arc;
 use tokio::sync::{mpsc, watch};
 
@@ -68,8 +66,8 @@ impl Bot {
         api_tx: mpsc::Sender<ApiAndOptOneshot>,
     ) {
         let bot_read = bot.read();
-
-        let info = bot_read.information.clone();
+        let drive = bot_read.drive.clone();
+        let info = &bot_read.information;
 
         let plugin_iter = bot_read.plugins.iter();
 
@@ -111,6 +109,12 @@ impl Bot {
             type_plugin_map
         };
 
+        let msg_event =
+            (drive.message_event_register().type_de)(&msg, &info.read(), &api_tx).map(|e| {
+                log_msg_event(&*e);
+                e
+            });
+
         drop(bot_read);
 
         struct SharedData {
@@ -125,33 +129,19 @@ impl Bot {
             plugin_cache,
         });
 
-        for (type_id, plugin_map) in type_plugin_map {
+        for plugin_map in type_plugin_map.into_values() {
             tokio::spawn(type_handler(
-                // TODO： 由于onebot拆分所以这里暂时注释掉
-                // type_id,
                 plugin_map,
-                // TODO： 由于onebot拆分所以这里作为一个plugin-access-control的服务暂时注释掉
-                // msg_event.clone(),
+                msg_event.clone(),
                 shared_data.clone(),
             ));
         }
 
         async fn type_handler(
-            // TODO： 由于onebot拆分所以这里暂时注释掉
-            type_id: TypeId,
             plugin_map: EventHandler,
-            drive: Arc<dyn Drive>,
-            // TODO： 由于onebot拆分所以这里作为一个plugin-access-control的服务暂时注释掉
-            msg_event: Option<Arc<MsgEvent>>,
+            msg_event: Option<Arc<dyn MessageEventTrait>>,
             shared_data: Arc<SharedData>,
         ) {
-            // TODO： 由于onebot拆分所以这里暂时注释掉
-            let mut event_cache = if type_id == TypeId::of::<MsgEvent>() {
-                msg_event.clone().map(|arc| arc as Arc<dyn Event>)
-            } else {
-                None
-            };
-
             let mut event_cache: Option<Arc<dyn Event>> = None;
             for (name, plugin_vec) in plugin_map.plugins.into_iter() {
                 let plugin_cache = &shared_data.plugin_cache[&name];
@@ -160,7 +150,7 @@ impl Bot {
                 #[cfg(feature = "plugin-access-control")]
                 if let Some(event) = &msg_event {
                     // 判断是否黑白名单
-                    if !is_access(&plugin_cache.acc, event) {
+                    if !is_access(&plugin_cache.acc, &**event) {
                         continue;
                     }
                 }
@@ -210,23 +200,22 @@ impl Bot {
             }
         }
 
-        // // TODO： 由于onebot拆分所以这里作为一个打印bot启动日志的服务暂时注释掉
-        // fn log_msg_event(event: &MsgEvent) {
-        //     info!(
-        //         "[{message_type}{group_id}{nickname} {id}]: {text}",
-        //         message_type = event.message_type,
-        //         group_id = match event.group_id {
-        //             Some(id) => id.to_string(),
-        //             None => "".to_string(),
-        //         },
-        //         nickname = match &event.sender.nickname {
-        //             Some(nickname) => nickname,
-        //             None => "",
-        //         },
-        //         id = event.sender.user_id,
-        //         text = event.message.to_human_string()
-        //     );
-        // }
+        // TODO： 由于onebot拆分所以这里作为一个打印bot启动日志的服务暂时注释掉
+        fn log_msg_event<T: MessageEventTrait + ?Sized>(event: &T) {
+            let message_type = event.get_message_type_str().unwrap_or_default();
+            let group_id = match event.get_ref_group_id() {
+                Some(id) => id.to_string(),
+                None => "".to_string(),
+            };
+            let nickname = event.get_sender_name().unwrap_or_default();
+            let id = event.get_sender_id();
+            let msg = event.get_message();
+
+            log::info!(
+                "[{message_type}{group_id}{nickname} {id}]: {text}",
+                text = msg.to_human_string()
+            );
+        }
 
         async fn handle_listen(listen: Arc<ListenInner>, cache_event: Arc<dyn Event + 'static>) {
             (*listen.handler)(cache_event).await;
@@ -266,26 +255,31 @@ impl AccCache {
 
 //TODO： 由于onebot拆分所以这里作为一个plugin-access-control的服务暂时注释掉
 #[cfg(feature = "plugin-access-control")]
-fn is_access(plugin: &AccCache, event: impl MessageEventTrait) -> bool {
+fn is_access<T: MessageEventTrait + ?Sized>(plugin: &AccCache, event: &T) -> bool {
     if !plugin.access_control {
         return true;
     }
 
     let access_list = &plugin.access_list;
-    let in_group = event.is_group();
+    let in_group = event.is_group_message();
 
     match (plugin.list_mode, in_group) {
-        (AccessControlMode::WhiteList, true) => access_list
-            .groups
-            .contains(event.group_id.as_ref().expect("unreachable")),
-        (AccessControlMode::WhiteList, false) => {
-            access_list.friends.contains(&event.sender.user_id)
+        (AccessControlMode::WhiteList, true) => {
+            let id = event.get_ref_group_id().expect("unreachable");
+            access_list.groups.iter().any(|v| *v == id)
         }
-        (AccessControlMode::BlackList, true) => !access_list
-            .groups
-            .contains(event.group_id.as_ref().expect("unreachable")),
+
+        (AccessControlMode::WhiteList, false) => {
+            let id = event.get_sender_id();
+            access_list.friends.iter().any(|v| *v == id)
+        }
+        (AccessControlMode::BlackList, true) => {
+            let id = event.get_ref_group_id().expect("unreachable");
+            !access_list.groups.iter().any(|v| *v == id)
+        }
         (AccessControlMode::BlackList, false) => {
-            !access_list.friends.contains(&event.sender.user_id)
+            let id = event.get_sender_id();
+            !access_list.friends.iter().any(|v| *v == id)
         }
     }
 }

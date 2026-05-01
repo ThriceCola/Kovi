@@ -15,13 +15,13 @@ use crate::error::BotError;
 
 #[cfg(feature = "plugin-access-control")]
 pub use crate::bot::runtimebot::kovi_api::AccessControlMode;
+use crate::event::id::ID;
 use crate::plugin::plugin_set::PluginSet;
 use crate::plugin::{Plugin, PluginStatus};
 
 pub(crate) mod handler;
 pub(crate) mod run;
 
-pub mod event;
 pub mod runtimebot;
 
 /// bot结构体
@@ -70,7 +70,7 @@ impl Bot {
 
         Bot {
             information: Arc::new(RwLock::new(BotInformation {
-                main_admin: conf.config.main_admin,
+                main_admin: conf.config.main_admin.clone(),
                 deputy_admins: conf.config.admins.iter().cloned().collect(),
             })),
             drive: Arc::new(drive),
@@ -284,7 +284,7 @@ impl Bot {
 
             let (main_admin, deputy_admins) = {
                 let info = self.information.read();
-                (info.main_admin, info.deputy_admins.clone())
+                (info.main_admin.clone(), info.deputy_admins.clone())
             };
 
             // 更新 "config" 中的 admin 信息
@@ -292,7 +292,7 @@ impl Bot {
             doc["config"]["admins"] = toml_edit::Item::Value(toml_edit::Value::Array(
                 deputy_admins
                     .iter()
-                    .map(|&x| toml_edit::Value::from(x))
+                    .map(|x| toml_edit::Value::from(x.clone()))
                     .collect(),
             ));
 
@@ -328,8 +328,8 @@ pub struct ApiReturn {
 /// bot信息结构体
 #[derive(Debug, Clone)]
 pub struct BotInformation {
-    pub main_admin: i64,
-    pub deputy_admins: HashSet<i64>,
+    pub main_admin: ID,
+    pub deputy_admins: HashSet<ID>,
 }
 
 impl std::fmt::Display for ApiReturn {

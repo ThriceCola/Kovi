@@ -9,12 +9,12 @@
 
 /// Everything about bots is inside
 pub mod bot;
-
 pub mod config;
 /// 连接服务端的驱动
 pub mod drive;
 /// 一些错误枚举
 pub mod error;
+pub mod event;
 /// 控制台输出日志
 pub mod logger;
 pub mod message;
@@ -28,7 +28,7 @@ pub mod types;
 pub mod utils;
 
 pub use bot::runtimebot::RuntimeBot;
-pub use bot::{ApiReturn, Bot, event};
+pub use bot::{ApiReturn, Bot};
 pub use kovi_macros::plugin;
 pub use plugin::plugin_builder::PluginBuilder;
 pub use task::spawn;

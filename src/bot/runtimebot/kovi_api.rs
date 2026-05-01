@@ -1,5 +1,6 @@
 use super::RuntimeBot;
 use crate::error::BotError;
+use crate::event::id::ID;
 use crate::plugin::PluginInfo;
 use crate::types::ApiAndOptOneshot;
 use crate::{Bot, PluginBuilder};
@@ -22,22 +23,22 @@ pub trait KoviApi {}
 #[derive(Debug, Clone)]
 pub enum SetAdmin {
     /// 增加一个管理员
-    Add(i64),
+    Add(ID),
     /// 增加多个管理员
-    Adds(Vec<i64>),
+    Adds(Vec<ID>),
     /// 移除一个管理员
-    Remove(i64),
+    Remove(ID),
     /// 移除多个管理员
-    Removes(Vec<i64>),
+    Removes(Vec<ID>),
     /// 替换管理员成此管理员
-    Changes(Vec<i64>),
+    Changes(Vec<ID>),
 }
 
 #[cfg(feature = "plugin-access-control")]
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct AccessList {
-    pub friends: HashSet<i64>,
-    pub groups: HashSet<i64>,
+    pub friends: HashSet<ID>,
+    pub groups: HashSet<ID>,
 }
 
 #[cfg(feature = "plugin-access-control")]
@@ -179,7 +180,7 @@ impl RuntimeBot {
                 bot.information
                     .write()
                     .deputy_admins
-                    .retain(|&x| !ids.contains(&x));
+                    .retain(|x| !ids.contains(&x));
             }
             SetAdmin::Changes(ids) => {
                 bot.information.write().deputy_admins = ids.into_iter().collect();
@@ -195,13 +196,13 @@ impl RuntimeBot {
     ///
     /// 如果此 `RuntimeBot` 实例内部的 `Bot` 中已经不存在，将会返回 `BotError::RefExpired` 错误。
     /// 这通常出现在Bot已经关闭，可有个不受Kovi管理的线程仍然拥有此 RuntimeBot。
-    pub fn get_main_admin(&self) -> Result<i64, BotError> {
+    pub fn get_main_admin(&self) -> Result<ID, BotError> {
         let bot = match self.bot.upgrade() {
             Some(b) => b,
             None => return Err(BotError::RefExpired),
         };
 
-        let id = bot.read().information.read().main_admin;
+        let id = bot.read().information.read().main_admin.clone();
         Ok(id)
     }
 
@@ -211,7 +212,7 @@ impl RuntimeBot {
     ///
     /// 如果此 `RuntimeBot` 实例内部的 `Bot` 中已经不存在，将会返回 `BotError::RefExpired` 错误。
     /// 这通常出现在Bot已经关闭，可有个不受Kovi管理的线程仍然拥有此 RuntimeBot。
-    pub fn get_deputy_admins(&self) -> Result<Vec<i64>, BotError> {
+    pub fn get_deputy_admins(&self) -> Result<Vec<ID>, BotError> {
         let bot = match self.bot.upgrade() {
             Some(b) => b,
             None => return Err(BotError::RefExpired),
@@ -227,7 +228,7 @@ impl RuntimeBot {
     ///
     /// 如果此 `RuntimeBot` 实例内部的 `Bot` 中已经不存在，将会返回 `BotError::RefExpired` 错误。
     /// 这通常出现在Bot已经关闭，可有个不受Kovi管理的线程仍然拥有此 RuntimeBot。
-    pub fn get_all_admin(&self) -> Result<Vec<i64>, BotError> {
+    pub fn get_all_admin(&self) -> Result<Vec<ID>, BotError> {
         let bot = match self.bot.upgrade() {
             Some(b) => b,
             None => return Err(BotError::RefExpired),
@@ -237,7 +238,7 @@ impl RuntimeBot {
 
         let bot = bot.read();
 
-        admins.push(bot.information.read().main_admin);
+        admins.push(bot.information.read().main_admin.clone());
 
         admins.extend(bot.information.read().deputy_admins.clone());
 

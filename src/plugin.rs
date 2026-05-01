@@ -4,6 +4,8 @@ pub mod plugin_set;
 use crate::PluginBuilder;
 #[cfg(feature = "plugin-access-control")]
 use crate::bot::runtimebot::kovi_api::AccessList;
+#[cfg(feature = "plugin-access-control")]
+use crate::event::id::ID;
 use crate::plugin::plugin_builder::Listen;
 use crate::types::KoviAsyncFn;
 use serde::{Deserialize, Serialize};
@@ -172,7 +174,7 @@ impl Plugin {
             }
             // 从名单中移除多个用户
             (SetAccessControlList::Removes(ids), false) => {
-                self.access_list.friends.retain(|&x| !ids.contains(&x));
+                self.access_list.friends.retain(|x| !ids.contains(&x));
             }
             // 替换名单为新的用户列表
             (SetAccessControlList::Changes(ids), false) => {
@@ -216,13 +218,13 @@ pub struct PluginInfo {
 #[derive(Debug, Clone)]
 pub enum SetAccessControlList {
     /// 增加一个名单
-    Add(i64),
+    Add(ID),
     /// 增加多个名单
-    Adds(Vec<i64>),
+    Adds(Vec<ID>),
     /// 移除一个名单
-    Remove(i64),
+    Remove(ID),
     /// 移除多个名单
-    Removes(Vec<i64>),
+    Removes(Vec<ID>),
     /// 替换名单成此名单
-    Changes(Vec<i64>),
+    Changes(Vec<ID>),
 }
