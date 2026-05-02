@@ -56,14 +56,29 @@ impl Server {
 
 impl Server {
     /// 根据 path 后缀构建 WebSocket URL，例如 `ws_url("api")` → `ws://host:port/api`
+    /// 如果启用了 all_in_one 模式，path 将被忽略
     pub fn ws_url(&self, path: &str) -> String {
+        let path = if self.all_in_one {
+            "".to_string()
+        } else {
+            format!("/{}", path)
+        };
+
         let protocol = if self.secure { "wss" } else { "ws" };
         let host = match &self.host {
             Host::IpAddr(std::net::IpAddr::V6(ip)) => format!("[{ip}]"),
             Host::IpAddr(ip) => ip.to_string(),
             Host::Domain(d) => d.clone(),
         };
-        format!("{protocol}://{host}:{}/{path}", self.port)
+
+        format!(
+            "{protocol}://{host}:{self_port}{self_path}{path}",
+            self_port = self.port,
+            self_path = match self.path.as_str() {
+                "" => String::new(),
+                p => format!("{p}"),
+            },
+        )
     }
 }
 
