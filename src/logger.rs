@@ -9,7 +9,7 @@ pub fn set_logger() {
             let color = dialoguer::console::style($level)$(.$color())+;
             format!("[{}] [{}]: {}", color, $timestamp, $record.args())
         }};
-      }
+    }
 
     let init = env_logger::Builder::from_default_env()
         .format(|buf, record| {
@@ -36,13 +36,11 @@ pub fn set_logger() {
         .try_init();
 
     if let Err(e) = init {
-        println!(
-            "Kovi init env_logger failed: {e}. Very likely you've already started a logger"
-        );
+        println!("Kovi init env_logger failed: {e}. Very likely you've already started a logger");
     }
 }
 
-pub fn try_set_logger() {
+pub fn try_set_logger_use_env() {
     #[cfg(feature = "logger")]
     set_logger();
 }
@@ -55,7 +53,7 @@ fn test_logger() {
     }
 
     // Initialize the logger
-    try_set_logger();
+    try_set_logger_use_env();
 
     // Test different log levels
     log::info!("This is an info message - should appear without color");

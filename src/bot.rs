@@ -97,8 +97,8 @@ impl Bot {
     }
 
     /// 挂载插件。
-    pub fn mount_plugin_set(&mut self, plugin: PluginSet) {
-        for plugin in plugin.set {
+    pub fn mount_plugin_set(&mut self, plugin_set: PluginSet) {
+        for plugin in plugin_set.set {
             self.mount_plugin(plugin);
         }
     }
@@ -430,28 +430,19 @@ impl SendApi {
     }
 }
 
-// #[macro_export]
-// macro_rules! build_bot {
-//     ($( $plugin:ident ),* $(,)* ) => {
-//         {
-//             let conf = match kovi::bot::Bot::load_local_conf() {
-//                 Ok(c) => c,
-//                 Err(e) => {
-//                     eprintln!("Error loading config: {}", e);
-//                     panic!("Failed to load config");
-//                 }
-//             };
-//             kovi::logger::try_set_logger();
-//             let mut bot = kovi::bot::Bot::build(&conf);
+#[macro_export]
+macro_rules! build_bot {
+    ($driver:expr; $( $plugin:ident ),* $(,)? ) => {{
+        let kovi_config = kovi::load_local_conf()
+            .expect("Failed to load kovi config");
 
-//             $(
-//                 let plugin = $plugin::__kovi_build_plugin();
-//                 kovi::log::info!("Mounting plugin: {}", &plugin.name);
-//                 bot.mount_plugin(plugin);
-//             )*
+        kovi::logger::try_set_logger_use_env();
 
-//             bot.set_plugin_startup_use_file_ref();
-//             bot
-//         }
-//     };
-// }
+        let mut bot = kovi::Bot::build(kovi_config, $driver);
+        let plugin_set = kovi::plugins!($( $plugin ),*);
+        bot.mount_plugin_set(plugin_set);
+        bot.set_plugin_startup_use_file_ref();
+
+        bot
+    }};
+}

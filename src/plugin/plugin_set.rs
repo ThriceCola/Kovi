@@ -19,17 +19,3 @@ impl PluginSet {
         self.set.push(plugin);
     }
 }
-
-#[macro_export]
-macro_rules! plugins {
-    ($( $plugin:ident ),* $(,)* ) => {
-        {
-            let mut set = kovi::plugin::plugin_set::PluginSet::new();
-            $(
-                let plugin = $plugin::__kovi_build_plugin();
-                set.push(plugin);
-            )*
-            set
-        }
-    };
-}

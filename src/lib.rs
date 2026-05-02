@@ -29,6 +29,7 @@ pub mod utils;
 
 pub use bot::runtimebot::RuntimeBot;
 pub use bot::{ApiReturn, Bot};
+pub use config::kovi_conf::load_local_conf;
 pub use kovi_macros::plugin;
 pub use plugin::plugin_builder::PluginBuilder;
 pub use task::spawn;
@@ -40,5 +41,3 @@ pub use log;
 pub use serde_json;
 pub use tokio;
 pub use toml;
-
-// pub(crate) use crate::bot::run::RUNTIME as RT;
