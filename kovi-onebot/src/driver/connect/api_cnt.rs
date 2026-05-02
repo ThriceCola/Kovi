@@ -5,7 +5,7 @@ use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
 use http::HeaderValue;
 use kovi::bot::SendApi;
-use kovi::drive::{AnyError, DriveEvent};
+use kovi::driver::{AnyError, DriverEvent};
 use kovi::{ApiReturn, futures_util};
 use log::{debug, error, warn};
 use serde::{Deserialize, Serialize};
@@ -92,7 +92,7 @@ impl driver::OneBotDriver {
     /// 冷路径：建立 WS 连接并启动后台任务，返回 ApiContext（只在首次调用时执行）
     pub(crate) async fn init_api_context(
         server: Arc<Server>,
-        event_tx: Arc<Mutex<Option<mpsc::Sender<Result<DriveEvent, AnyError>>>>>,
+        event_tx: Arc<Mutex<Option<mpsc::Sender<Result<DriverEvent, AnyError>>>>>,
     ) -> Result<driver::ApiContext, AnyError> {
         let mut request = server
             .ws_url("api")
@@ -137,7 +137,7 @@ impl driver::OneBotDriver {
 async fn ws_read_task(
     read: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
     tx_map: OneshotTxMap,
-    event_tx: Arc<Mutex<Option<mpsc::Sender<Result<DriveEvent, AnyError>>>>>,
+    event_tx: Arc<Mutex<Option<mpsc::Sender<Result<DriverEvent, AnyError>>>>>,
 ) {
     read.for_each(|msg| {
         let tx_map = tx_map.clone();
@@ -201,7 +201,7 @@ async fn ws_write_task(
     mut write: SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
     mut api_rx: mpsc::Receiver<(OneBotSendApi, Option<OneBotApiOneshotSender>)>,
     tx_map: OneshotTxMap,
-    event_tx: Arc<Mutex<Option<mpsc::Sender<Result<DriveEvent, AnyError>>>>>,
+    event_tx: Arc<Mutex<Option<mpsc::Sender<Result<DriverEvent, AnyError>>>>>,
 ) {
     while let Some((api_msg, return_tx)) = api_rx.recv().await {
         debug!("api send: {api_msg}");
@@ -219,7 +219,7 @@ async fn ws_write_task(
 }
 
 async fn send_exit_event(
-    event_tx: &Arc<Mutex<Option<mpsc::Sender<Result<DriveEvent, AnyError>>>>>,
+    event_tx: &Arc<Mutex<Option<mpsc::Sender<Result<DriverEvent, AnyError>>>>>,
 ) {
     let tx = {
         let guard = event_tx.lock().await;
@@ -227,7 +227,7 @@ async fn send_exit_event(
     };
 
     if let Some(tx) = tx {
-        if tx.send(Ok(DriveEvent::Exit)).await.is_err() {
+        if tx.send(Ok(DriverEvent::Exit)).await.is_err() {
             debug!("Failed to forward DriveEvent::Exit to event channel");
         }
     }

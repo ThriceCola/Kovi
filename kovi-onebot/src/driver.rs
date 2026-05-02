@@ -4,7 +4,7 @@ use crate::driver::config::{OneBotDriverConfig, Server};
 use crate::driver::connect::api_cnt::{OneBotApiOneshotSender, OneBotSendApi};
 use crate::event::MsgEvent;
 use kovi::bot::SendApi;
-use kovi::drive::{Drive, DriveEvent, MessageEventRegister};
+use kovi::driver::{Driver, DriverEvent, MessageEventRegister};
 use kovi::futures_util;
 use log::{error, info};
 use tokio::sync::{Mutex, OnceCell, mpsc};
@@ -36,7 +36,7 @@ pub struct OneBotDriver {
     /// 异步 OnceCell：保证并发时只初始化一次
     ctx: Arc<OnceCell<ApiContext>>,
     pub(crate) event_tx:
-        Arc<Mutex<Option<mpsc::Sender<Result<DriveEvent, kovi::drive::AnyError>>>>>,
+        Arc<Mutex<Option<mpsc::Sender<Result<DriverEvent, kovi::driver::AnyError>>>>>,
 }
 
 impl OneBotDriver {
@@ -50,14 +50,16 @@ impl OneBotDriver {
 }
 
 #[async_trait::async_trait]
-impl Drive for OneBotDriver {
+impl Driver for OneBotDriver {
     async fn event_channel(
         &self,
     ) -> Result<
         std::pin::Pin<
-            Box<dyn futures_util::Stream<Item = Result<DriveEvent, kovi::drive::AnyError>> + Send>,
+            Box<
+                dyn futures_util::Stream<Item = Result<DriverEvent, kovi::driver::AnyError>> + Send,
+            >,
         >,
-        kovi::drive::AnyError,
+        kovi::driver::AnyError,
     > {
         let (event_tx, event_rx) = mpsc::channel(64);
         {
@@ -84,7 +86,7 @@ impl Drive for OneBotDriver {
             dyn std::future::Future<
                     Output = Result<
                         Result<kovi::ApiReturn, kovi::ApiReturn>,
-                        kovi::drive::AnyError,
+                        kovi::driver::AnyError,
                     >,
                 > + Send,
         >,

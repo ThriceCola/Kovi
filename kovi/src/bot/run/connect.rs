@@ -1,5 +1,5 @@
 use crate::bot::handler::{ExitEvent, InternalInternalEvent};
-use crate::drive::{Drive, DriveEvent};
+use crate::driver::{Driver, DriverEvent};
 use crate::event::InternalEvent;
 use crate::types::ApiAndOptOneshot;
 use futures::StreamExt as _;
@@ -8,7 +8,7 @@ use tokio::sync::mpsc::{self};
 
 pub(crate) async fn event_connect(
     self_event_tx: mpsc::Sender<InternalInternalEvent>,
-    drive: Arc<dyn Drive>,
+    drive: Arc<dyn Driver>,
 ) {
     let mut drive_stream = match drive.event_channel().await {
         Ok(drive_stream) => drive_stream,
@@ -31,8 +31,8 @@ pub(crate) async fn event_connect(
         };
 
         let internal_event = match event {
-            DriveEvent::Exit => InternalInternalEvent::Exit(ExitEvent::FromDrive),
-            DriveEvent::Normal(value) => {
+            DriverEvent::Exit => InternalInternalEvent::Exit(ExitEvent::FromDrive),
+            DriverEvent::Normal(value) => {
                 InternalInternalEvent::OneBotEvent(Box::new(InternalEvent::OneBotEvent(value)))
             }
         };
@@ -44,7 +44,7 @@ pub(crate) async fn event_connect(
 pub(crate) async fn send_connect(
     mut self_api_rx: mpsc::Receiver<ApiAndOptOneshot>,
     self_event_tx: mpsc::Sender<InternalInternalEvent>,
-    drive: Arc<dyn Drive>,
+    drive: Arc<dyn Driver>,
 ) {
     //处理事件，每个事件都会来到这里
     while let Some(api_and_oneshot) = self_api_rx.recv().await {
@@ -59,7 +59,7 @@ pub(crate) async fn send_connect(
 async fn send_api_inner(
     api_and_oneshot: ApiAndOptOneshot,
     self_event_tx: mpsc::Sender<InternalInternalEvent>,
-    drive: Arc<dyn Drive>,
+    drive: Arc<dyn Driver>,
 ) {
     let (send_api, oneshot) = api_and_oneshot;
 

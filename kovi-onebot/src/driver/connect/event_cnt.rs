@@ -3,7 +3,7 @@ use crate::driver::{self};
 use futures_util::stream::{Select, SplitStream};
 use futures_util::{StreamExt, stream};
 use http::HeaderValue;
-use kovi::drive::{AnyError, DriveEvent};
+use kovi::driver::{AnyError, DriverEvent};
 use kovi::futures_util;
 use tokio::net::TcpStream;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
@@ -12,12 +12,14 @@ use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async};
 impl driver::OneBotDriver {
     pub(crate) async fn ws_event_connect(
         server: Server,
-        event_rx: tokio::sync::mpsc::Receiver<Result<DriveEvent, AnyError>>,
+        event_rx: tokio::sync::mpsc::Receiver<Result<DriverEvent, AnyError>>,
     ) -> Result<
         std::pin::Pin<
-            Box<dyn futures_util::Stream<Item = Result<DriveEvent, kovi::drive::AnyError>> + Send>,
+            Box<
+                dyn futures_util::Stream<Item = Result<DriverEvent, kovi::driver::AnyError>> + Send,
+            >,
         >,
-        kovi::drive::AnyError,
+        kovi::driver::AnyError,
     > {
         let mut request = server
             .ws_url("event")
@@ -38,12 +40,12 @@ impl driver::OneBotDriver {
 
         fn handle_msg(
             msg: tokio_tungstenite::tungstenite::Message,
-        ) -> Result<DriveEvent, AnyError> {
+        ) -> Result<DriverEvent, AnyError> {
             if !msg.is_text() {
                 return Err("The WebSocket message is not text".into());
             }
             let text = msg.to_text().expect("unreachable");
-            Ok(DriveEvent::Normal(serde_json::from_str(text)?))
+            Ok(DriverEvent::Normal(serde_json::from_str(text)?))
         }
 
         let ws_stream = read.map(|msg_result| match msg_result {

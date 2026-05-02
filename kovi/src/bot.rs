@@ -11,7 +11,7 @@ use std::io::Write as _;
 use std::sync::Arc;
 
 use crate::config::kovi_conf::KoviConf;
-use crate::drive::Drive;
+use crate::driver::Driver;
 use crate::error::BotError;
 
 #[cfg(feature = "plugin-access-control")]
@@ -29,7 +29,7 @@ pub mod runtimebot;
 /// bot结构体
 pub struct Bot {
     pub information: Arc<RwLock<BotInformation>>,
-    pub drive: Arc<dyn Drive>,
+    pub drive: Arc<dyn Driver>,
     pub(crate) plugins: HashMap<String, Plugin>,
     pub(crate) run_abort: Vec<tokio::task::AbortHandle>,
 }
@@ -66,7 +66,7 @@ impl Bot {
     pub fn build<C, D>(conf_from_template: C, drive: D) -> Bot
     where
         C: AsRef<KoviConf>,
-        D: Drive + 'static,
+        D: Driver + 'static,
     {
         let conf = conf_from_template.as_ref();
 

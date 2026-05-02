@@ -7,7 +7,7 @@ use serde_json::Value;
 use std::pin::Pin;
 use std::sync::Arc;
 
-pub enum DriveEvent {
+pub enum DriverEvent {
     /// Drive 的退出事件
     Exit,
     /// 正常的运行时事件
@@ -17,10 +17,10 @@ pub enum DriveEvent {
 pub type AnyError = Box<dyn std::error::Error + Send + Sync>;
 
 #[async_trait::async_trait]
-pub trait Drive: Send + Sync {
+pub trait Driver: Send + Sync {
     async fn event_channel(
         &self,
-    ) -> Result<Pin<Box<dyn Stream<Item = Result<DriveEvent, AnyError>> + Send>>, AnyError>;
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<DriverEvent, AnyError>> + Send>>, AnyError>;
 
     fn api_handler(
         &self,
