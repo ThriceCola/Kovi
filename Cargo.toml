@@ -15,7 +15,7 @@ anyhow = "1"
 members = [
     "kovi",
     "kovi-onebot",
-    "kovi-macros",
+    "kovi-macros", "kovi-milky",
 ]
 
 [workspace.dependencies]
