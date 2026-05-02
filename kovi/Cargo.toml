@@ -1,0 +1,46 @@
+[package]
+name = "kovi"
+version = "0.12.7"
+authors = ["ThriceCola <thricecola@hotmail.com>"]
+edition = "2024"
+description = "A OneBot V11 bot plugin framework"
+license = "MPL-2.0"
+repository = "https://github.com/thricecola/Kovi"
+readme = "../README_Cargo.md"
+documentation = "https://thricecola.github.io/kovi-doc/"
+keywords = ["framework", "kovi", "onebot"]
+
+[lib]
+name = "kovi"
+path = "src/lib.rs"
+
+[dependencies]
+ahash = "0.8"
+chrono = "0.4"
+croner = "2.2.0"
+dialoguer = { version = "0.11", features = ["fuzzy-select"] }
+env_logger = { version = "0.11", default-features = false, features = [
+  "auto-color",
+  "color",
+], optional = true }
+futures = "0.3"
+futures-util = "0.3"
+kovi-macros = { version = "0.5" }
+log = "0.4"
+parking_lot = "0.12"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["full", "windows-sys"] }
+toml = "0.9"
+toml_edit = "0.23"
+async-trait = "0.1"
+ouroboros = "0.18.*"
+
+[features]
+default = ["logger", "plugin-access-control", "save_bot_status"]
+logger = ["env_logger"]
+plugin-access-control = []
+save_bot_admin = []
+save_bot_status = ["save_bot_admin", "save_plugin_status"]
+save_plugin_status = []
