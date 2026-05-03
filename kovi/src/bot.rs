@@ -336,6 +336,7 @@ pub struct SendApi {
 pub struct ApiReturn {
     pub status: String,
     pub retcode: i32,
+    pub message: Option<String>,
     pub data: Value,
 }
 
@@ -425,7 +426,6 @@ impl SendApi {
         SendApi {
             action: action.to_string(),
             params,
-            // echo: Self::rand_echo(),
         }
     }
 }

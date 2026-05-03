@@ -50,6 +50,7 @@ impl From<OneBotApiReturn> for ApiReturn {
         Self {
             status: value.status,
             retcode: value.retcode,
+            message: None,
             data: value.data,
         }
     }
