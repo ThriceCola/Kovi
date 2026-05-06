@@ -6,16 +6,17 @@ edition = "2024"
 [dependencies]
 kovi.workspace = true
 kovi-onebot.workspace = true
-dhat = "0.3.3"
 test-hi = { version = "0.1.0", path = "plugins/test-hi" }
 tokio = { version = "1", features = ["full"] }
 anyhow = "1"
+kovi-milky = { path = "kovi-milky" }
 
 [workspace]
 members = [
     "kovi",
     "kovi-onebot",
-    "kovi-macros", "kovi-milky",
+    "kovi-macros",
+    "kovi-milky",
 ]
 
 [workspace.dependencies]

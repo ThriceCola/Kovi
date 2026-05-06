@@ -62,6 +62,24 @@ impl Server {
             },
         )
     }
+
+    pub fn api_url(&self, path: &str) -> String {
+        let protocol = if self.secure { "https" } else { "http" };
+        let host = match &self.host {
+            Host::IpAddr(std::net::IpAddr::V6(ip)) => format!("[{ip}]"),
+            Host::IpAddr(ip) => ip.to_string(),
+            Host::Domain(d) => d.clone(),
+        };
+
+        format!(
+            "{protocol}://{host}:{self_port}{self_path}/api/{path}",
+            self_port = self.port,
+            self_path = match self.path.as_str() {
+                "" => String::new(),
+                p => format!("{p}"),
+            },
+        )
+    }
 }
 
 impl AsRef<MilkyDriverConfig> for MilkyDriverConfig {
