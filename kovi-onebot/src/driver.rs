@@ -41,6 +41,8 @@ pub struct OneBotDriver {
 
 impl OneBotDriver {
     pub fn new(config: OneBotDriverConfig) -> Self {
+        let config = OneBotDriverConfig::normalize_path(config);
+
         Self {
             server: Arc::new(config.server),
             ctx: Arc::new(OnceCell::new()),

@@ -27,6 +27,8 @@ impl MilkyDriver {
             let auth = format!("Bearer {}", config.server.access_token);
             headers.insert(AUTHORIZATION, header::HeaderValue::from_str(&auth).unwrap());
         }
+
+        let config = MilkyDriverConfig::normalize_path(config);
         Self {
             server: Arc::new(config.server),
             req_client: reqwest::Client::builder()
@@ -52,8 +54,8 @@ impl Driver for MilkyDriver {
         match self.handler_lifecycle_log_bot_enable().await {
             Ok(_) => {}
             Err(_) => {
-                log::error!("Failed to initialize onebot connection");
-                return Err("Failed to initialize onebot connection".into());
+                log::error!("Failed to initialize milky connection");
+                return Err("Failed to initialize milky connection".into());
             }
         };
 

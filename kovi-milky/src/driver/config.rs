@@ -13,6 +13,24 @@ pub struct MilkyDriverConfig {
     pub server: Server,
 }
 
+impl MilkyDriverConfig {
+    pub fn normalize_path(self) -> Self {
+        Self {
+            server: Server {
+                host: self.server.host,
+                port: self.server.port,
+                access_token: self.server.access_token,
+                secure: self.server.secure,
+                path: if self.server.path.ends_with('/') {
+                    self.server.path
+                } else {
+                    format!("{}/", self.server.path)
+                },
+            },
+        }
+    }
+}
+
 /// server信息
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Server {
@@ -54,7 +72,7 @@ impl Server {
         };
 
         format!(
-            "{protocol}://{host}:{self_port}{self_path}/{path}",
+            "{protocol}://{host}:{self_port}{self_path}{path}",
             self_port = self.port,
             self_path = match self.path.as_str() {
                 "" => String::new(),
@@ -72,7 +90,7 @@ impl Server {
         };
 
         format!(
-            "{protocol}://{host}:{self_port}{self_path}/api/{path}",
+            "{protocol}://{host}:{self_port}{self_path}api/{path}",
             self_port = self.port,
             self_path = match self.path.as_str() {
                 "" => String::new(),

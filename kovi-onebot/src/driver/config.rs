@@ -13,6 +13,25 @@ pub struct OneBotDriverConfig {
     pub server: Server,
 }
 
+impl OneBotDriverConfig {
+    pub fn normalize_path(self) -> Self {
+        Self {
+            server: Server {
+                host: self.server.host,
+                port: self.server.port,
+                access_token: self.server.access_token,
+                secure: self.server.secure,
+                path: if self.server.path.ends_with('/') {
+                    self.server.path
+                } else {
+                    format!("{}/", self.server.path)
+                },
+                all_in_one: self.server.all_in_one,
+            },
+        }
+    }
+}
+
 /// server信息
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Server {
