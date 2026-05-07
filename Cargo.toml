@@ -1,25 +1,15 @@
-[package]
-name = "kovi-dev"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-kovi.workspace = true
-kovi-onebot.workspace = true
-test-hi = { version = "0.1.0", path = "plugins/test-hi" }
-tokio = { version = "1", features = ["full"] }
-anyhow = "1"
-kovi-milky = { path = "kovi-milky" }
-
 [workspace]
+resolver = "3"
 members = [
     "kovi",
     "kovi-onebot",
     "kovi-macros",
     "kovi-milky",
+    "plugins/*",
 ]
 
 [workspace.dependencies]
+anyhow = "1"
 kovi = { path = "kovi" }
 ahash = "0.8"
 chrono = "0.4"
@@ -39,10 +29,17 @@ tokio-tungstenite = "0.26"
 toml = "0.8"
 toml_edit = "0.22"
 kovi-onebot = { path = "kovi-onebot" }
+kovi-milky = { path = "kovi-milky" }
+reqwest = { version = "0.13", features = ["json"] }
+async-trait = "0.1"
+
+
+[patch.crates-io]
+kovi = { path = "kovi" }
+kovi-onebot = { path = "kovi-onebot" }
+kovi-milky = { path = "kovi-milky" }
+kovi-macros = { version = "0.5.1", path = "kovi-macros" }
+
 
 # [package.metadata]
 # rust-version = "nightly"
-
-[patch.crates-io]
-kovi-macros = { version = "0.5.1", path = "kovi-macros" }
-kovi = { path = "kovi" }
