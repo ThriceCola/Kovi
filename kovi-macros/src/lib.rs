@@ -36,8 +36,7 @@ pub fn plugin(_attr: TokenStream, item: TokenStream) -> TokenStream {
             )
         }
 
-        #[doc(hidden)]
-        pub fn build_plugin() -> kovi::plugin::Plugin {
+        pub fn get_plugin() -> kovi::plugin::Plugin {
             let (name, version) = crate::__kovi_get_plugin_info();
 
             kovi::plugin::Plugin::new(
