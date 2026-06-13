@@ -1,6 +1,6 @@
 [package]
 name = "kovi-onebot"
-version = "0.13.0"
+version = "0.13.0-rc1"
 edition = "2024"
 
 [dependencies]
