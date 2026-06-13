@@ -5,9 +5,20 @@ pub mod message_trait;
 pub mod onebot_api;
 pub mod onebot_message;
 
-pub use crate::message_trait::MessageRegistrar as _;
-pub use event_registrar::EventRegistrar as _;
-pub use onebot_api::OnebotTrait as _;
-
+// ── Driver ──
 pub use driver::OneBotDriver;
-pub use driver::config::load_local_conf;
+pub use driver::config::{Host, OneBotDriverConfig, Server, load_local_conf};
+
+// ── Events ──
+pub use event::{
+    AdminMsgEvent, GroupMsgEvent, MsgEvent, MsgSendFromKoviEvent, MsgSendFromServerEvent,
+    NoticeEvent, PrivateMsgEvent, RepliableEvent, RequestEvent,
+};
+pub use event_registrar::EventRegistrar;
+pub use onebot_message::OneBotMessage;
+
+// ── Message builder ──
+pub use message_trait::MessageRegistrar;
+
+// ── API traits ──
+pub use onebot_api::OnebotTrait;

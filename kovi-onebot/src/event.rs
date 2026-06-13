@@ -5,7 +5,7 @@ pub use admin_msg_event::AdminMsgEvent;
 pub use group_msg_event::GroupMsgEvent;
 use kovi::message::Message as KoviMessage;
 pub use msg_event::MsgEvent;
-pub use msg_send_from_kovi_event::MsgSendFromKoviEvent;
+pub use msg_send_from_kovi_event::{MsgSendFromKoviEvent, MsgSendFromKoviType};
 pub use msg_send_from_server_event::MsgSendFromServerEvent;
 pub use notice_event::NoticeEvent;
 pub use private_msg_event::PrivateMsgEvent;

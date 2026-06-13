@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 pub use admin_msg_event::AdminMsgEvent;
 pub use friend_msg_event::FriendMsgEvent;
 pub use group_msg_event::GroupMsgEvent;
-pub use msg_event::MsgEvent;
-pub use msg_send_from_kovi_event::MsgSendFromKoviEvent;
+pub use msg_event::{MessageReceiveEventData, MessageScene, MsgEvent};
+pub use msg_send_from_kovi_event::{MsgSendFromKoviEvent, MsgSendFromKoviType};
 
 pub mod admin_msg_event;
 pub mod friend_msg_event;
