@@ -4,9 +4,8 @@ use crate::bot::AccessControlMode;
 use crate::bot::BotInformation;
 #[cfg(feature = "plugin-access-control")]
 use crate::bot::runtimebot::kovi_api::AccessList;
-#[cfg(feature = "plugin-access-control")]
-use crate::event::MessageEventTrait;
-use crate::event::{Event, InternalEvent};
+
+use crate::event::{Event, InternalEvent, MessageEventTrait};
 use crate::plugin::PLUGIN_NAME;
 use crate::plugin::plugin_builder::ListenInner;
 use crate::types::ApiAndOptOneshot;

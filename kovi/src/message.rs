@@ -6,6 +6,7 @@ use crate::error::MessageError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Segment {
+    #[serde(alias = "type")]
     pub kind: String,
     pub data: Value,
 }
@@ -31,7 +32,7 @@ impl PartialEq for Segment {
 ///
 /// # Examples
 /// ```
-/// use kovi::bot::message::Message;
+/// use kovi::message::Message;
 /// use serde_json::json;
 ///
 /// let msg: Message = Message::from("Hi");
@@ -220,7 +221,7 @@ impl Message {
     ///
     /// # Examples
     /// ```
-    /// use kovi::bot::message::Message;
+    /// use kovi::message::Message;
     /// use serde_json::json;
     ///
     /// let msg1: Message = Message::from("Hi");
@@ -245,8 +246,8 @@ impl Message {
     ///
     /// # Examples
     /// ```
-    /// use kovi::bot::message::Segment;
-    /// use kovi::bot::message::Message;
+    /// use kovi::message::Segment;
+    /// use kovi::message::Message;
     /// use serde_json::{json, Value};
     ///
     /// let msg: Message = Message::from_value(json!(

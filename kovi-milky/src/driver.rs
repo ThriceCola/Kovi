@@ -1,5 +1,6 @@
 pub mod config;
 
+use crate::MsgEvent;
 use crate::driver::config::{MilkyDriverConfig, Server};
 use http::header::{AUTHORIZATION, CONTENT_TYPE};
 use kovi::bot::SendApi;
@@ -81,8 +82,7 @@ impl Driver for MilkyDriver {
     }
 
     fn message_event_register(&self) -> MessageEventRegister {
-        // MessageEventRegister::register::<MsgEvent>()
-        todo!()
+        MessageEventRegister::register::<MsgEvent>()
     }
 }
 

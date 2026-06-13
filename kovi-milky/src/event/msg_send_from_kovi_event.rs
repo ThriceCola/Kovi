@@ -7,12 +7,8 @@ use tokio::sync::mpsc;
 
 /// 此事件会监听以下消息发送
 ///
-/// "send_msg" => MsgSendFromKoviType::SendMsg
-/// "send_private_msg" => MsgSendFromKoviType::SendPrivateMsg
-/// "send_group_msg" => MsgSendFromKoviType::SendGroupMsg
-/// "send_forward_msg" => MsgSendFromKoviType::SendForwardMsg
-/// "send_private_forward_msg" => MsgSendFromKoviType::SendPrivateForwardMsg
-/// "send_group_forward_msg" => MsgSendFromKoviType::SendGroupForwardMsg
+/// "send_private_message" => MsgSendFromKoviType::SendPrivateMsg
+/// "send_group_message" => MsgSendFromKoviType::SendGroupMsg
 #[derive(Debug, Clone)]
 pub struct MsgSendFromKoviEvent {
     /// 事件类型
@@ -48,8 +44,8 @@ impl TryFrom<&str> for MsgSendFromKoviType {
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
-            "send_private_msg" => Ok(MsgSendFromKoviType::SendPrivateMsg),
-            "send_group_msg" => Ok(MsgSendFromKoviType::SendGroupMsg),
+            "send_private_message" => Ok(MsgSendFromKoviType::SendPrivateMsg),
+            "send_group_message" => Ok(MsgSendFromKoviType::SendGroupMsg),
 
             _ => Err(format!("Invalid MsgSendFromKoviType: {value}")),
         }
@@ -60,8 +56,8 @@ impl TryFrom<&String> for MsgSendFromKoviType {
 
     fn try_from(value: &String) -> Result<Self, Self::Error> {
         match value.as_str() {
-            "send_private_msg" => Ok(MsgSendFromKoviType::SendPrivateMsg),
-            "send_group_msg" => Ok(MsgSendFromKoviType::SendGroupMsg),
+            "send_private_message" => Ok(MsgSendFromKoviType::SendPrivateMsg),
+            "send_group_message" => Ok(MsgSendFromKoviType::SendGroupMsg),
 
             _ => Err(format!("Invalid MsgSendFromKoviType: {value}")),
         }

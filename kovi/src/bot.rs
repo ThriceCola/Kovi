@@ -44,24 +44,16 @@ impl Drop for Bot {
 impl Bot {
     /// 构建一个bot实例
     /// # Examples
-    /// ```
+    /// ```ignore
     /// use kovi::Bot;
-    /// use kovi::bot::{KoviConf, Server};
-    /// use std::net::{IpAddr, Ipv4Addr};
+    /// use kovi::config::kovi_conf::KoviConf;
+    /// use kovi::event::id::ID;
     ///
-    /// let conf = KoviConf::new(
-    ///     123456,
-    ///     None,
-    ///     Server {
-    ///         host: kovi::bot::Host::IpAddr(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))),
-    ///         port: 8081,
-    ///         access_token: "".to_string(),
-    ///         secure: false,
-    ///     },
-    ///     false,
-    /// );
-    /// let bot = Bot::build(conf);
-    /// bot.run()
+    /// let conf = KoviConf::new(ID::new(123456), None, false);
+    ///
+    /// // Bot::build takes a config and a driver.
+    /// // Drivers are provided by external crates like kovi-onebot or kovi-milky.
+    /// // let bot = Bot::build(conf, driver);
     /// ```
     pub fn build<C, D>(conf_from_template: C, drive: D) -> Bot
     where
@@ -72,11 +64,11 @@ impl Bot {
 
         let bot_info = BotInformationBuilder {
             main_admin_id_cache: conf.config.main_admin.clone(),
-            deputy_admins_id_cache: conf.config.admins.iter().cloned().map(|v| v).collect(),
+            deputy_admins_id_cache: conf.config.admins.iter().cloned().collect(),
             main_admin_builder: |v| v.into(),
-            deputy_admins_builder: |v| v.into_iter().map(|v| v.into()).collect(),
+            deputy_admins_builder: |v| v.iter().map(|v| v.into()).collect(),
             all_admins_builder: |m, d| {
-                let mut set: HashSet<RefID<'_>> = d.into_iter().map(|v| v.into()).collect();
+                let mut set: HashSet<RefID<'_>> = d.iter().map(|v| v.into()).collect();
                 set.insert(m.into());
                 set
             },
@@ -363,11 +355,11 @@ impl BotInformation {
     pub fn build(main_admin: ID, deputy_admins: HashSet<ID>) -> BotInformation {
         BotInformationBuilder {
             main_admin_id_cache: main_admin,
-            deputy_admins_id_cache: deputy_admins.into_iter().map(|v| v).collect(),
+            deputy_admins_id_cache: deputy_admins,
             main_admin_builder: |v| v.into(),
-            deputy_admins_builder: |v| v.into_iter().map(|v| v.into()).collect(),
+            deputy_admins_builder: |v| v.iter().map(|v| v.into()).collect(),
             all_admins_builder: |m, d| {
-                let mut set: HashSet<RefID<'_>> = d.into_iter().map(|v| v.into()).collect();
+                let mut set: HashSet<RefID<'_>> = d.iter().map(|v| v.into()).collect();
                 set.insert(m.into());
                 set
             },

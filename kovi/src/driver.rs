@@ -16,16 +16,16 @@ pub enum DriverEvent {
 
 pub type AnyError = Box<dyn std::error::Error + Send + Sync>;
 
+pub type ApiHandlerResult =
+    Pin<Box<dyn Future<Output = Result<Result<ApiReturn, ApiReturn>, AnyError>> + Send>>;
+
 #[async_trait::async_trait]
 pub trait Driver: Send + Sync {
     async fn event_channel(
         &self,
     ) -> Result<Pin<Box<dyn Stream<Item = Result<DriverEvent, AnyError>> + Send>>, AnyError>;
 
-    fn api_handler(
-        &self,
-        value: SendApi,
-    ) -> Pin<Box<dyn Future<Output = Result<Result<ApiReturn, ApiReturn>, AnyError>> + Send>>;
+    fn api_handler(&self, value: SendApi) -> ApiHandlerResult;
 
     fn message_event_register(&self) -> MessageEventRegister;
 }

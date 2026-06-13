@@ -180,7 +180,7 @@ impl RuntimeBot {
                 deputy_admins.remove(&id);
             }
             SetAdmin::Removes(ids) => {
-                deputy_admins.retain(|x| !ids.contains(&x));
+                deputy_admins.retain(|x| !ids.contains(x));
             }
             SetAdmin::Changes(ids) => {
                 deputy_admins = ids.into_iter().collect();
@@ -259,8 +259,7 @@ impl RuntimeBot {
     ///  - 权限不足，无法访问当前目录，这样肯定不能运行插件。
     pub fn get_data_path(&self) -> PathBuf {
         let data_root_path = crate::utils::get_data_root_path();
-        let plugin_path = data_root_path.join(self.plugin_name.clone());
-        plugin_path
+        data_root_path.join(self.plugin_name.clone())
     }
 }
 

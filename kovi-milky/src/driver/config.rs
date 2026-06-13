@@ -76,7 +76,7 @@ impl Server {
             self_port = self.port,
             self_path = match self.path.as_str() {
                 "" => String::new(),
-                p => format!("{p}"),
+                p => p.to_string(),
             },
         )
     }
@@ -94,7 +94,7 @@ impl Server {
             self_port = self.port,
             self_path = match self.path.as_str() {
                 "" => String::new(),
-                p => format!("{p}"),
+                p => p.to_string(),
             },
         )
     }

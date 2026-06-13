@@ -174,7 +174,7 @@ impl Plugin {
             }
             // 从名单中移除多个用户
             (SetAccessControlList::Removes(ids), false) => {
-                self.access_list.friends.retain(|x| !ids.contains(&x));
+                self.access_list.friends.retain(|x| !ids.contains(x));
             }
             // 替换名单为新的用户列表
             (SetAccessControlList::Changes(ids), false) => {
