@@ -31,12 +31,13 @@ pub(crate) struct ApiContext {
     _tasks: Vec<AbortOnDrop>,
 }
 
+pub type EventTx = Arc<Mutex<Option<mpsc::Sender<Result<DriverEvent, kovi::driver::AnyError>>>>>;
+
 pub struct OneBotDriver {
     pub(crate) server: Arc<Server>,
     /// 异步 OnceCell：保证并发时只初始化一次
     ctx: Arc<OnceCell<ApiContext>>,
-    pub(crate) event_tx:
-        Arc<Mutex<Option<mpsc::Sender<Result<DriverEvent, kovi::driver::AnyError>>>>>,
+    pub(crate) event_tx: EventTx,
 }
 
 impl OneBotDriver {

@@ -57,7 +57,7 @@ pub trait OnebotTrait: CanSendApi {
             }),
         );
 
-        let api_rx = send_api_request(&self.__get_api_tx(), send_api);
+        let api_rx = send_api_request(self.__get_api_tx(), send_api);
 
         async move {
             let r = send_api_await_response(api_rx).await;
@@ -139,7 +139,7 @@ pub trait OnebotTrait: CanSendApi {
         let user_id = &user_id;
         info!("[send] [to private {user_id}]: {}", msg.to_human_string());
 
-        let api_rx = send_api_request(&self.__get_api_tx(), send_api);
+        let api_rx = send_api_request(self.__get_api_tx(), send_api);
 
         async move {
             let r = send_api_await_response(api_rx).await;
@@ -200,7 +200,7 @@ pub trait OnebotTrait: CanSendApi {
     fn can_send_image(&self) -> impl std::future::Future<Output = Result<bool, ApiReturn>> {
         let send_api = SendApi::new("can_send_image", json!({}));
 
-        let api_rx = send_api_request(&self.__get_api_tx(), send_api);
+        let api_rx = send_api_request(self.__get_api_tx(), send_api);
 
         async move {
             let r = send_api_await_response(api_rx).await;
@@ -219,7 +219,7 @@ pub trait OnebotTrait: CanSendApi {
     fn can_send_record(&self) -> impl std::future::Future<Output = Result<bool, ApiReturn>> {
         let send_api = SendApi::new("can_send_record", json!({}));
 
-        let api_rx = send_api_request(&self.__get_api_tx(), send_api);
+        let api_rx = send_api_request(self.__get_api_tx(), send_api);
 
         async move {
             let r = send_api_await_response(api_rx).await;
@@ -256,7 +256,7 @@ pub trait OnebotTrait: CanSendApi {
             }),
         );
 
-        send_api_request_with_forget(&self.__get_api_tx(), send_api);
+        send_api_request_with_forget(self.__get_api_tx(), send_api);
     }
 
     #[cfg(feature = "cqstring")]
@@ -306,7 +306,7 @@ pub trait OnebotTrait: CanSendApi {
             }),
         );
 
-        send_api_request_with_forget(&self.__get_api_tx(), send_api);
+        send_api_request_with_forget(self.__get_api_tx(), send_api);
     }
 
     #[cfg(feature = "cqstring")]
@@ -348,7 +348,7 @@ pub trait OnebotTrait: CanSendApi {
             }),
         );
 
-        send_api_request_with_forget(&self.__get_api_tx(), send_api);
+        send_api_request_with_forget(self.__get_api_tx(), send_api);
     }
 
     /// 点赞，有些服务端会返回点赞失败，所以需要返回值的话请使用 send_like_return()
@@ -366,7 +366,7 @@ pub trait OnebotTrait: CanSendApi {
             }),
         );
 
-        send_api_request_with_forget(&self.__get_api_tx(), send_api);
+        send_api_request_with_forget(self.__get_api_tx(), send_api);
     }
 
     /// 群组踢人
@@ -387,7 +387,7 @@ pub trait OnebotTrait: CanSendApi {
             }),
         );
 
-        send_api_request_with_forget(&self.__get_api_tx(), send_api);
+        send_api_request_with_forget(self.__get_api_tx(), send_api);
     }
 
     /// 群组单人禁言
@@ -409,7 +409,7 @@ pub trait OnebotTrait: CanSendApi {
             }),
         );
 
-        send_api_request_with_forget(&self.__get_api_tx(), send_api);
+        send_api_request_with_forget(self.__get_api_tx(), send_api);
     }
     /// 群组匿名用户禁言
     ///
@@ -435,7 +435,7 @@ pub trait OnebotTrait: CanSendApi {
             }),
         );
 
-        send_api_request_with_forget(&self.__get_api_tx(), send_api);
+        send_api_request_with_forget(self.__get_api_tx(), send_api);
     }
     /// 群组匿名用户禁言
     ///
@@ -456,7 +456,7 @@ pub trait OnebotTrait: CanSendApi {
             }),
         );
 
-        send_api_request_with_forget(&self.__get_api_tx(), send_api);
+        send_api_request_with_forget(self.__get_api_tx(), send_api);
     }
 
     /// 群组全员禁言
@@ -475,7 +475,7 @@ pub trait OnebotTrait: CanSendApi {
             }),
         );
 
-        send_api_request_with_forget(&self.__get_api_tx(), send_api);
+        send_api_request_with_forget(self.__get_api_tx(), send_api);
     }
 
     /// 群组设置管理员
@@ -497,7 +497,7 @@ pub trait OnebotTrait: CanSendApi {
             }),
         );
 
-        send_api_request_with_forget(&self.__get_api_tx(), send_api);
+        send_api_request_with_forget(self.__get_api_tx(), send_api);
     }
     /// 群组匿名
     ///
@@ -515,7 +515,7 @@ pub trait OnebotTrait: CanSendApi {
             }),
         );
 
-        send_api_request_with_forget(&self.__get_api_tx(), send_api);
+        send_api_request_with_forget(self.__get_api_tx(), send_api);
     }
 
     /// 设置群名片（群备注）
@@ -537,7 +537,7 @@ pub trait OnebotTrait: CanSendApi {
             }),
         );
 
-        send_api_request_with_forget(&self.__get_api_tx(), send_api);
+        send_api_request_with_forget(self.__get_api_tx(), send_api);
     }
 
     /// 设置群名
@@ -556,7 +556,7 @@ pub trait OnebotTrait: CanSendApi {
             }),
         );
 
-        send_api_request_with_forget(&self.__get_api_tx(), send_api);
+        send_api_request_with_forget(self.__get_api_tx(), send_api);
     }
 
     /// 退出群组
@@ -575,7 +575,7 @@ pub trait OnebotTrait: CanSendApi {
             }),
         );
 
-        send_api_request_with_forget(&self.__get_api_tx(), send_api);
+        send_api_request_with_forget(self.__get_api_tx(), send_api);
     }
 
     /// 设置群组专属头衔
@@ -597,7 +597,7 @@ pub trait OnebotTrait: CanSendApi {
             }),
         );
 
-        send_api_request_with_forget(&self.__get_api_tx(), send_api);
+        send_api_request_with_forget(self.__get_api_tx(), send_api);
     }
     /// 处理加好友请求
     ///
@@ -618,7 +618,7 @@ pub trait OnebotTrait: CanSendApi {
             }),
         );
 
-        send_api_request_with_forget(&self.__get_api_tx(), send_api);
+        send_api_request_with_forget(self.__get_api_tx(), send_api);
     }
     /// 处理加群请求／邀请
     ///
@@ -652,7 +652,7 @@ pub trait OnebotTrait: CanSendApi {
             }),
         );
 
-        send_api_request_with_forget(&self.__get_api_tx(), send_api);
+        send_api_request_with_forget(self.__get_api_tx(), send_api);
     }
 
     /// 清理缓存
@@ -660,7 +660,7 @@ pub trait OnebotTrait: CanSendApi {
     /// 用于清理积攒了太多的**OneBot服务端**缓存文件。**并非是对于本框架清除**。
     fn clean_cache(&self) {
         let send_api = SendApi::new("clean_cache", json!({}));
-        send_api_request_with_forget(&self.__get_api_tx(), send_api);
+        send_api_request_with_forget(self.__get_api_tx(), send_api);
     }
     // //////////////////////////////
     // 这些是需要处理返回值的api
@@ -681,7 +681,7 @@ pub trait OnebotTrait: CanSendApi {
             }),
         );
 
-        send_api_request_with_response(&self.__get_api_tx(), send_api)
+        send_api_request_with_response(self.__get_api_tx(), send_api)
     }
     /// 获取合并转发消息
     /// # Arguments
@@ -698,13 +698,13 @@ pub trait OnebotTrait: CanSendApi {
             }),
         );
 
-        send_api_request_with_response(&self.__get_api_tx(), send_api)
+        send_api_request_with_response(self.__get_api_tx(), send_api)
     }
     /// 获取获取登录号信息
     fn get_login_info(&self) -> impl std::future::Future<Output = Result<ApiReturn, ApiReturn>> {
         let send_api = SendApi::new("get_login_info", json!({}));
 
-        send_api_request_with_response(&self.__get_api_tx(), send_api)
+        send_api_request_with_response(self.__get_api_tx(), send_api)
     }
     /// 获取获取陌生人信息
     /// # Arguments
@@ -725,13 +725,13 @@ pub trait OnebotTrait: CanSendApi {
             }),
         );
 
-        send_api_request_with_response(&self.__get_api_tx(), send_api)
+        send_api_request_with_response(self.__get_api_tx(), send_api)
     }
     /// 获取好友列表
     fn get_friend_list(&self) -> impl std::future::Future<Output = Result<ApiReturn, ApiReturn>> {
         let send_api = SendApi::new("get_friend_list", json!({}));
 
-        send_api_request_with_response(&self.__get_api_tx(), send_api)
+        send_api_request_with_response(self.__get_api_tx(), send_api)
     }
     /// 获取群信息
     /// # Arguments
@@ -752,13 +752,13 @@ pub trait OnebotTrait: CanSendApi {
             }),
         );
 
-        send_api_request_with_response(&self.__get_api_tx(), send_api)
+        send_api_request_with_response(self.__get_api_tx(), send_api)
     }
     /// 获取群列表
     fn get_group_list(&self) -> impl std::future::Future<Output = Result<ApiReturn, ApiReturn>> {
         let send_api = SendApi::new("get_group_list", json!({}));
 
-        send_api_request_with_response(&self.__get_api_tx(), send_api)
+        send_api_request_with_response(self.__get_api_tx(), send_api)
     }
     ///获取群成员信息
     /// # Arguments
@@ -783,7 +783,7 @@ pub trait OnebotTrait: CanSendApi {
             }),
         );
 
-        send_api_request_with_response(&self.__get_api_tx(), send_api)
+        send_api_request_with_response(self.__get_api_tx(), send_api)
     }
     /// 获取群成员列表
     ///
@@ -801,7 +801,7 @@ pub trait OnebotTrait: CanSendApi {
             }),
         );
 
-        send_api_request_with_response(&self.__get_api_tx(), send_api)
+        send_api_request_with_response(self.__get_api_tx(), send_api)
     }
 
     /// 获取群荣誉信息
@@ -832,7 +832,7 @@ pub trait OnebotTrait: CanSendApi {
             }),
         );
 
-        send_api_request_with_response(&self.__get_api_tx(), send_api)
+        send_api_request_with_response(self.__get_api_tx(), send_api)
     }
 
     /// 获取相关接口凭证, 即 Cookies 和 CSRF Token 的合并。
@@ -851,19 +851,19 @@ pub trait OnebotTrait: CanSendApi {
             }),
         );
 
-        send_api_request_with_response(&self.__get_api_tx(), send_api)
+        send_api_request_with_response(self.__get_api_tx(), send_api)
     }
 
     /// 获取运行状态
     fn get_status(&self) -> impl std::future::Future<Output = Result<ApiReturn, ApiReturn>> {
         let send_api = SendApi::new("get_status", json!({}));
 
-        send_api_request_with_response(&self.__get_api_tx(), send_api)
+        send_api_request_with_response(self.__get_api_tx(), send_api)
     }
     /// 获取版本信息
     fn get_version_info(&self) -> impl std::future::Future<Output = Result<ApiReturn, ApiReturn>> {
         let send_api = SendApi::new("get_version_info", json!({}));
-        send_api_request_with_response(&self.__get_api_tx(), send_api)
+        send_api_request_with_response(self.__get_api_tx(), send_api)
     }
     /// 获取 Cookies
     ///
@@ -880,13 +880,13 @@ pub trait OnebotTrait: CanSendApi {
                 "domain":domain,
             }),
         );
-        send_api_request_with_response(&self.__get_api_tx(), send_api)
+        send_api_request_with_response(self.__get_api_tx(), send_api)
     }
     /// 获取 CSRF Token
     fn get_csrf_token(&self) -> impl std::future::Future<Output = Result<ApiReturn, ApiReturn>> {
         let send_api = SendApi::new("get_csrf_token", json!({}));
 
-        send_api_request_with_response(&self.__get_api_tx(), send_api)
+        send_api_request_with_response(self.__get_api_tx(), send_api)
     }
     /// 获取语音
     ///
@@ -907,7 +907,7 @@ pub trait OnebotTrait: CanSendApi {
                     "out_format":out_format
             }),
         );
-        send_api_request_with_response(&self.__get_api_tx(), send_api)
+        send_api_request_with_response(self.__get_api_tx(), send_api)
     }
     /// 获取图片
     ///
@@ -924,7 +924,7 @@ pub trait OnebotTrait: CanSendApi {
                 "file":file,
             }),
         );
-        send_api_request_with_response(&self.__get_api_tx(), send_api)
+        send_api_request_with_response(self.__get_api_tx(), send_api)
     }
 
     /// 点赞，有些服务端会返回点赞失败，不关注返回值的话请使用 send_like()
@@ -946,7 +946,7 @@ pub trait OnebotTrait: CanSendApi {
             }),
         );
 
-        send_api_request_with_response(&self.__get_api_tx(), send_api)
+        send_api_request_with_response(self.__get_api_tx(), send_api)
     }
 }
 

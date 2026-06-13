@@ -294,21 +294,21 @@ fn check_msg() {
             },
         ]
     ))
-    .unwrap();
+    .expect("Failed to parse msg json");
     let text_value: Segment = serde_json::from_value(json!({
         "type":"text",
         "data":{
             "text":"Some msg"
         }
     }))
-    .unwrap();
+    .expect("Failed to parse text segment");
     let face_value: Segment = serde_json::from_value(json!({
         "type":"face",
         "data":{
             "id":"0"
         }
     }))
-    .unwrap();
+    .expect("Failed to parse face segment");
     assert_eq!(msg.get("text")[0], text_value);
     assert_eq!(msg.get("face")[0], face_value);
 
@@ -323,7 +323,7 @@ fn check_msg() {
             }
         ]
     ))
-    .unwrap();
+    .expect("Failed to parse msg2 json");
     assert!(msg1.contains("text"));
     assert!(msg2.contains("text"));
 }

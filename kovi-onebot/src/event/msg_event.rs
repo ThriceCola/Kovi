@@ -57,7 +57,7 @@ pub struct MsgEvent {
 
 impl MessageEventTrait for MsgEvent {
     fn get_sender_name(&self) -> Option<&str> {
-        self.sender.nickname.as_ref().map(|s| s.as_str())
+        self.sender.nickname.as_deref()
     }
 
     fn get_message(&self) -> &KoviMessage {
