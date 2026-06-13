@@ -90,13 +90,13 @@ pub fn get_data_root_path() -> PathBuf {
     current_dir
 }
 
-/// 计算pskey值
-pub fn calculate_pskey(skey: &str) -> u32 {
-    let mut hash: u32 = 5381;
-    for character in skey.chars() {
-        hash = (hash << 5)
-            .wrapping_add(hash)
-            .wrapping_add(character as u32);
-    }
-    hash & 0x7fffffff
-}
+// /// 计算pskey值
+// pub fn calculate_pskey(skey: &str) -> u32 {
+//     let mut hash: u32 = 5381;
+//     for character in skey.chars() {
+//         hash = (hash << 5)
+//             .wrapping_add(hash)
+//             .wrapping_add(character as u32);
+//     }
+//     hash & 0x7fffffff
+// }
