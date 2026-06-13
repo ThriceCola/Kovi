@@ -1,0 +1,29 @@
+[package]
+name = "kovi-milky"
+version = "0.13.0-rc1"
+description = "Milky WebSocket protocol driver for Kovi bot framework"
+license = "MPL-2.0"
+edition = "2024"
+
+[dependencies]
+ahash.workspace = true
+dialoguer.workspace = true
+http.workspace = true
+kovi.workspace = true
+log.workspace = true
+parking_lot.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tokio-tungstenite.workspace = true
+toml.workspace = true
+toml_edit.workspace = true
+chrono.workspace = true
+async-trait.workspace = true
+reqwest.workspace = true
+
+[features]
+native-tls-vendored = ["tokio-tungstenite/native-tls-vendored", "reqwest/native-tls-vendored"]
+rustls-tls-native-roots = ["tokio-tungstenite/rustls-tls-native-roots", "reqwest/rustls"]
+rustls-tls-webpki-roots = ["tokio-tungstenite/rustls-tls-webpki-roots", "reqwest/rustls"]

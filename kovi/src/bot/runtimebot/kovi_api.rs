@@ -1,0 +1,445 @@
+use super::RuntimeBot;
+use crate::bot::BotInformation;
+use crate::error::BotError;
+use crate::event::id::ID;
+use crate::plugin::PluginInfo;
+use crate::types::ApiAndOptOneshot;
+use crate::{Bot, PluginBuilder};
+use parking_lot::RwLock;
+use std::path::PathBuf;
+use std::sync::Arc;
+use tokio::sync::mpsc;
+
+#[cfg(feature = "plugin-access-control")]
+pub use crate::plugin::SetAccessControlList;
+
+#[cfg(feature = "plugin-access-control")]
+use ahash::HashSet;
+#[cfg(feature = "plugin-access-control")]
+use serde::{Deserialize, Serialize};
+
+#[deprecated(since = "0.11.0", note = "弃用，直接删掉就好了")]
+pub trait KoviApi {}
+
+#[derive(Debug, Clone)]
+pub enum SetAdmin {
+    /// 增加一个管理员
+    Add(ID),
+    /// 增加多个管理员
+    Adds(Vec<ID>),
+    /// 移除一个管理员
+    Remove(ID),
+    /// 移除多个管理员
+    Removes(Vec<ID>),
+    /// 替换管理员成此管理员
+    Changes(Vec<ID>),
+}
+
+#[cfg(feature = "plugin-access-control")]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct AccessList {
+    pub friends: HashSet<ID>,
+    pub groups: HashSet<ID>,
+}
+
+#[cfg(feature = "plugin-access-control")]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+pub enum AccessControlMode {
+    BlackList,
+    WhiteList,
+}
+
+/// 黑白名单
+#[cfg(feature = "plugin-access-control")]
+impl RuntimeBot {
+    /// 为某一插件启动名单
+    ///
+    /// # error
+    ///
+    /// 如果寻找不到插件，会返回Err `BotError::PluginNotFound`
+    ///
+    /// 如果此 `RuntimeBot` 实例内部的 `Bot` 中已经不存在，将会返回Err `BotError::RefExpired` 。
+    /// 这通常出现在 `Bot` 已经关闭，可有个不受 Kovi 管理的线程仍然拥有此 `RuntimeBot`。
+    pub fn set_plugin_access_control<T: AsRef<str>>(
+        &self,
+        plugin_name: T,
+        enable: bool,
+    ) -> Result<(), BotError> {
+        let bot = match self.bot.upgrade() {
+            Some(b) => b,
+            None => return Err(BotError::RefExpired),
+        };
+
+        let mut bot = bot.write();
+
+        let plugin_name = plugin_name.as_ref();
+
+        let plugin = match bot.plugins.get_mut(plugin_name) {
+            Some(v) => v,
+            None => return Err(BotError::PluginNotFound(plugin_name.to_string())),
+        };
+
+        plugin.set_access_control(enable);
+
+        Ok(())
+    }
+
+    /// 更改名单为其他模式，插件默认为白名单模式
+    ///
+    /// # error
+    ///
+    /// 如果寻找不到插件，会返回Err `BotError::PluginNotFound`
+    ///
+    /// 如果此 `RuntimeBot` 实例内部的 `Bot` 中已经不存在，将会返回Err `BotError::RefExpired` 。
+    /// 这通常出现在 `Bot` 已经关闭，可有个不受 Kovi 管理的线程仍然拥有此 `RuntimeBot`。
+    pub fn set_plugin_access_control_mode<T: AsRef<str>>(
+        &self,
+        plugin_name: T,
+        access_control_mode: AccessControlMode,
+    ) -> Result<(), BotError> {
+        let bot = match self.bot.upgrade() {
+            Some(b) => b,
+            None => return Err(BotError::RefExpired),
+        };
+
+        let mut bot = bot.write();
+
+        let plugin_name = plugin_name.as_ref();
+
+        let plugin = match bot.plugins.get_mut(plugin_name) {
+            Some(v) => v,
+            None => return Err(BotError::PluginNotFound(plugin_name.to_string())),
+        };
+
+        plugin.set_access_control_mode(access_control_mode);
+
+        Ok(())
+    }
+
+    /// 为某一插件添加名单
+    ///
+    /// is_group为true时，为群组名单，为false时为好友名单
+    ///
+    /// # error
+    ///
+    /// 如果寻找不到插件，会返回Err `BotError::PluginNotFound`
+    ///
+    /// 如果此 `RuntimeBot` 实例内部的 `Bot` 中已经不存在，将会返回Err `BotError::RefExpired` 。
+    /// 这通常出现在 `Bot` 已经关闭，可有个不受 Kovi 管理的线程仍然拥有此 `RuntimeBot`。
+    pub fn set_plugin_access_control_list<T: AsRef<str>>(
+        &self,
+        plugin_name: T,
+        is_group: bool,
+        change: SetAccessControlList,
+    ) -> Result<(), BotError> {
+        let bot = match self.bot.upgrade() {
+            Some(b) => b,
+            None => return Err(BotError::RefExpired),
+        };
+
+        let mut bot = bot.write();
+
+        let plugin_name = plugin_name.as_ref();
+
+        let plugin = match bot.plugins.get_mut(plugin_name) {
+            Some(v) => v,
+            None => return Err(BotError::PluginNotFound(plugin_name.to_string())),
+        };
+
+        plugin.set_access_control_list(is_group, change);
+
+        Ok(())
+    }
+}
+
+/// 管理员控制
+impl RuntimeBot {
+    /// 修改Bot的管理员
+    ///
+    /// # Error
+    ///
+    /// 如果此 `RuntimeBot` 实例内部的 `Bot` 中已经不存在，将会返回 `BotError::RefExpired` 错误。
+    /// 这通常出现在Bot已经关闭，可有个不受Kovi管理的线程仍然拥有此 RuntimeBot。
+    pub fn set_deputy_admins(&self, change: SetAdmin) -> Result<(), BotError> {
+        let bot = match self.bot.upgrade() {
+            Some(b) => b,
+            None => return Err(BotError::RefExpired),
+        };
+        let bot = bot.read();
+        let mut bot_info_lock = bot.information.write();
+        let main_admin = bot_info_lock.get_main_admin().clone();
+        let mut deputy_admins = bot_info_lock.get_deputy_admins().clone();
+        match change {
+            SetAdmin::Add(id) => {
+                deputy_admins.insert(id);
+            }
+            SetAdmin::Adds(ids) => {
+                deputy_admins.extend(ids);
+            }
+            SetAdmin::Remove(id) => {
+                deputy_admins.remove(&id);
+            }
+            SetAdmin::Removes(ids) => {
+                deputy_admins.retain(|x| !ids.contains(x));
+            }
+            SetAdmin::Changes(ids) => {
+                deputy_admins = ids.into_iter().collect();
+            }
+        }
+
+        *bot_info_lock = BotInformation::build(main_admin, deputy_admins);
+
+        Ok(())
+    }
+
+    /// 获取Bot的主管理员
+    ///
+    /// # Error
+    ///
+    /// 如果此 `RuntimeBot` 实例内部的 `Bot` 中已经不存在，将会返回 `BotError::RefExpired` 错误。
+    /// 这通常出现在Bot已经关闭，可有个不受Kovi管理的线程仍然拥有此 RuntimeBot。
+    pub fn get_main_admin(&self) -> Result<ID, BotError> {
+        let bot = match self.bot.upgrade() {
+            Some(b) => b,
+            None => return Err(BotError::RefExpired),
+        };
+
+        let id = bot.read().information.read().get_main_admin().clone();
+        Ok(id)
+    }
+
+    /// 获取Bot的副管理员
+    ///
+    /// # Error
+    ///
+    /// 如果此 `RuntimeBot` 实例内部的 `Bot` 中已经不存在，将会返回 `BotError::RefExpired` 错误。
+    /// 这通常出现在Bot已经关闭，可有个不受Kovi管理的线程仍然拥有此 RuntimeBot。
+    pub fn get_deputy_admins(&self) -> Result<Vec<ID>, BotError> {
+        let bot = match self.bot.upgrade() {
+            Some(b) => b,
+            None => return Err(BotError::RefExpired),
+        };
+
+        let ids = bot.read().information.read().get_deputy_admins().clone();
+        Ok(ids.into_iter().collect())
+    }
+
+    /// 获取Bot的所有管理员
+    ///
+    /// # Error
+    ///
+    /// 如果此 `RuntimeBot` 实例内部的 `Bot` 中已经不存在，将会返回 `BotError::RefExpired` 错误。
+    /// 这通常出现在Bot已经关闭，可有个不受Kovi管理的线程仍然拥有此 RuntimeBot。
+    pub fn get_all_admin(&self) -> Result<Vec<ID>, BotError> {
+        let bot = match self.bot.upgrade() {
+            Some(b) => b,
+            None => return Err(BotError::RefExpired),
+        };
+
+        let mut admins = Vec::with_capacity(1);
+
+        let bot = bot.read();
+
+        admins.push(bot.information.read().get_main_admin().clone());
+
+        admins.extend(bot.information.read().get_deputy_admins().clone());
+
+        Ok(admins)
+    }
+}
+
+/// 工具
+impl RuntimeBot {
+    /// 获取插件自己的路径
+    ///
+    /// # panic
+    ///
+    /// 可能会 panic 的情况：
+    ///  - 当前运行目录不存在，这种情况很少见。
+    ///  - 权限不足，无法访问当前目录，这样肯定不能运行插件。
+    pub fn get_data_path(&self) -> PathBuf {
+        let data_root_path = crate::utils::get_data_root_path();
+        data_root_path.join(self.plugin_name.clone())
+    }
+}
+
+/// 插件控制
+impl RuntimeBot {
+    /// 获取Bot的插件信息。
+    ///
+    /// # Error
+    ///
+    /// 如果此 `RuntimeBot` 实例内部的 `Bot` 中已经不存在，将会返回 `BotError::RefExpired` 错误。
+    /// 这通常出现在Bot已经关闭，可有个不受Kovi管理的线程仍然拥有此 RuntimeBot。
+    pub fn get_plugin_info(&self) -> Result<Vec<PluginInfo>, BotError> {
+        let bot = match self.bot.upgrade() {
+            Some(b) => b,
+            None => return Err(BotError::RefExpired),
+        };
+
+        let bot = bot.read();
+
+        let plugins_info: Vec<PluginInfo> = bot
+            .plugins
+            .iter()
+            .map(|(name, plugin)| PluginInfo {
+                name: name.clone(),
+                version: plugin.version.clone(),
+                enabled: *plugin.enabled.borrow(),
+                enable_on_startup: plugin.enable_on_startup,
+                #[cfg(feature = "plugin-access-control")]
+                access_control: plugin.access_control,
+                #[cfg(feature = "plugin-access-control")]
+                list_mode: plugin.list_mode,
+                #[cfg(feature = "plugin-access-control")]
+                access_list: plugin.access_list.clone(),
+            })
+            .collect();
+
+        Ok(plugins_info)
+    }
+
+    /// 重载传入的插件
+    ///
+    /// # error
+    ///
+    /// 如果寻找不到插件，会返回Err `BotError::PluginNotFound`
+    ///
+    /// 如果此 `RuntimeBot` 实例内部的 `Bot` 中已经不存在，将会返回Err `BotError::RefExpired` 。
+    /// 这通常出现在 `Bot` 已经关闭，可有个不受 Kovi 管理的线程仍然拥有此 `RuntimeBot`。
+    ///
+    /// # panic
+    ///
+    /// 如果插件的 Drop 闭包发生 panic ，此函数也会 panic
+    pub async fn restart_plugin<T: AsRef<str>>(&self, plugin_name: T) -> Result<(), BotError> {
+        if self.is_plugin_enable(&plugin_name)? {
+            let join = self.disable_plugin(&plugin_name)?;
+
+            if let Some(join) = join {
+                join.await.expect("Internal thread panic")
+            }
+        }
+
+        self.enable_plugin(plugin_name)
+    }
+
+    /// 卸载传入的插件
+    ///
+    /// # error
+    ///
+    /// 如果寻找不到插件，会返回Err `BotError::PluginNotFound`
+    ///
+    /// 如果此 `RuntimeBot` 实例内部的 `Bot` 中已经不存在，将会返回Err `BotError::RefExpired` 。
+    /// 这通常出现在 `Bot` 已经关闭，可有个不受 Kovi 管理的线程仍然拥有此 `RuntimeBot`。
+    pub fn disable_plugin<T: AsRef<str>>(
+        &self,
+        plugin_name: T,
+    ) -> Result<Option<tokio::task::JoinHandle<()>>, BotError> {
+        if !self.is_plugin_enable(&plugin_name)? {
+            return Ok(None);
+        }
+
+        let bot = match self.bot.upgrade() {
+            Some(b) => b,
+            None => return Err(BotError::RefExpired),
+        };
+
+        Ok(Some(disable_plugin(bot, plugin_name)?))
+    }
+
+    /// 启用传入的插件
+    ///
+    /// # error
+    ///
+    /// 如果寻找不到插件，会返回Err `BotError::PluginNotFound`
+    ///
+    /// 如果此 `RuntimeBot` 实例内部的 `Bot` 中已经不存在，将会返回Err `BotError::RefExpired` 。
+    /// 这通常出现在 `Bot` 已经关闭，可有个不受 Kovi 管理的线程仍然拥有此 `RuntimeBot`。
+    pub fn enable_plugin<T: AsRef<str>>(&self, plugin_name: T) -> Result<(), BotError> {
+        if self.is_plugin_enable(&plugin_name)? {
+            return Ok(());
+        }
+
+        let bot = match self.bot.upgrade() {
+            Some(b) => b,
+            None => return Err(BotError::RefExpired),
+        };
+
+        enable_plugin(bot, plugin_name, self.api_tx.clone())
+    }
+
+    /// 插件是否开启
+    ///
+    /// # error
+    ///
+    /// 如果寻找不到插件，会返回Err `BotError::PluginNotFound`
+    ///
+    /// 如果此 `RuntimeBot` 实例内部的 `Bot` 中已经不存在，将会返回Err `BotError::RefExpired` 。
+    /// 这通常出现在 `Bot` 已经关闭，可有个不受 Kovi 管理的线程仍然拥有此 `RuntimeBot`。
+    pub fn is_plugin_enable<T: AsRef<str>>(&self, plugin_name: T) -> Result<bool, BotError> {
+        let bot = match self.bot.upgrade() {
+            Some(b) => b,
+            None => return Err(BotError::RefExpired),
+        };
+
+        let bot = bot.read();
+        let plugin_name = plugin_name.as_ref();
+
+        let bot_plugin = match bot.plugins.get(plugin_name) {
+            Some(v) => v,
+            None => return Err(BotError::PluginNotFound(plugin_name.to_string())),
+        };
+        let bool_ = *bot_plugin.enabled.borrow();
+        Ok(bool_)
+    }
+}
+
+pub(crate) fn disable_plugin<T: AsRef<str>>(
+    bot: Arc<RwLock<Bot>>,
+    plugin_name: T,
+) -> Result<tokio::task::JoinHandle<()>, BotError> {
+    let join;
+    {
+        let mut bot = bot.write();
+
+        let plugin_name = plugin_name.as_ref();
+
+        let bot_plugin = match bot.plugins.get_mut(plugin_name) {
+            Some(v) => v,
+            None => return Err(BotError::PluginNotFound(plugin_name.to_string())),
+        };
+        join = bot_plugin.shutdown();
+    }
+
+    Ok(join)
+}
+
+fn enable_plugin<T: AsRef<str>>(
+    bot: Arc<RwLock<Bot>>,
+    plugin_name: T,
+    api_tx: mpsc::Sender<ApiAndOptOneshot>,
+) -> Result<(), BotError> {
+    let bot_read = bot.read();
+    let plugin_name = plugin_name.as_ref();
+
+    // let (host, port) = {
+    //     let info = bot_read.information.read();
+    //     (info.server.host.clone(), info.server.port)
+    // };
+
+    let Some(bot_plugin) = bot_read.plugins.get(plugin_name) else {
+        return Err(BotError::PluginNotFound(plugin_name.to_string()));
+    };
+
+    bot_plugin.enabled.send_modify(|v| {
+        *v = true;
+    });
+
+    let plugin_ = bot_plugin.clone();
+
+    let plugin_builder = PluginBuilder::new(plugin_name.to_string(), bot.clone(), api_tx);
+
+    tokio::spawn(async move { plugin_.run(plugin_builder) });
+
+    Ok(())
+}

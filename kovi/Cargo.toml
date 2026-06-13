@@ -1,0 +1,43 @@
+[package]
+name = "kovi"
+version = "0.13.0-rc1"
+authors = ["ThriceCola <thricecola@hotmail.com>"]
+edition = "2024"
+description = "A OneBot V11 bot plugin framework"
+license = "MPL-2.0"
+repository = "https://github.com/thricecola/Kovi"
+readme = "../README_Cargo.md"
+documentation = "https://thricecola.github.io/kovi-doc/"
+keywords = ["framework", "kovi", "onebot"]
+
+[lib]
+name = "kovi"
+path = "src/lib.rs"
+
+[dependencies]
+ahash.workspace = true
+chrono.workspace = true
+croner.workspace = true
+dialoguer.workspace = true
+env_logger = { workspace = true, optional = true }
+futures.workspace = true
+futures-util.workspace = true
+kovi-macros.workspace = true
+log.workspace = true
+ouroboros.workspace = true
+parking_lot.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+toml.workspace = true
+toml_edit.workspace = true
+async-trait.workspace = true
+
+[features]
+default = ["logger", "plugin-access-control", "save_bot_status"]
+logger = ["env_logger"]
+plugin-access-control = []
+save_bot_admin = []
+save_bot_status = ["save_bot_admin", "save_plugin_status"]
+save_plugin_status = []

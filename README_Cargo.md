@@ -2,13 +2,15 @@
 
 # Kovi
 
-Kovi is a plugin framework for OneBot V11. If you want to develop OneBot V11 bots using Rust, Kovi is a great choice.
+Kovi is a simple and extensible chat bot development framework. If you want to develop Milky / OneBot V11 bots using Rust, Kovi is a great choice.
 
-🎯 The goal is to create the simplest OneBot framework in Rust! Simplifying complex Rust syntax? Kovi has done its best.
+🎯 The goal is to create the simplest chat bot framework in Rust! Simplifying complex Rust syntax? Kovi has done its best.
 
-🤔 Let me count, the quick start in the documentation only requires 9 lines of code to create the simplest plugin.
+🤔 Let me count — the quick start in the documentation only requires 10 lines of code to create the simplest plugin.
 
 🥁 There’s also a CLI tool to make project development easier.
+
+🖥️  Just for fun? Or customized? Kovi is competent
 
 🛍️ The plugin shop provides an excellent Kovi shopping experience, allowing you to easily access packages from plugin developers 📦.
 
@@ -20,9 +22,15 @@ Kovi is a plugin framework for OneBot V11. If you want to develop OneBot V11 bot
 
 ### ↓ The shop is here
 
-[Kovi Shop](https://kovi.thricecola.com/start/plugins.html)
+[Kovi Shop](https://thricecola.github.io/kovi-doc/start/plugins.html)
 
-**Note ⚠️: Currently, the project only supports OneBot V11's forward WebSocket protocol.**
+
+## Protocol Support
+
+Kovi crate is basically an "event bus" plugin runner. You can adapt it to integrate with other services as needed, but its current focus is the two protocols above.
+
+- Milky WebSocket protocol
+- OneBot V11 forward WebSocket protocol
 
 ## Getting Started
 
@@ -151,6 +159,6 @@ The `main()` function runs only once when plugin starts.
 
 The closure passed to `plugin::on_msg()` runs every time a message is received.
 
-Kovi has encapsulated all available OneBot standard APIs. To extend the API, you can use `RuntimeBot`'s `send_api()` to send APIs yourself. You can check out the API extension plugins available for your needs at [Kovi Plugin Shop](https://thricecola.github.io/kovi-doc/start/plugins).
+Kovi has encapsulated all available OneBot standard APIs. To extend the API, you can use `RuntimeBot`'s `send_api()` to send APIs yourself. You can check out the API extension plugins available for your needs at [Kovi Plugin Shop](https://thricecola.github.io/kovi-doc/start/plugins.html).
 
 You can find more documentation in the [Kovi Doc](https://thricecola.github.io/kovi-doc/).
