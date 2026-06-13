@@ -27,7 +27,7 @@ impl Event for NoticeEvent {
         _: &BotInformation,
         _: &mpsc::Sender<ApiAndOptOneshot>,
     ) -> Option<Self> {
-        let InternalEvent::OneBotEvent(json) = event else {
+        let InternalEvent::DriverEvent(json) = event else {
             return None;
         };
         Self::new(json).ok()

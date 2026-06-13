@@ -1,5 +1,6 @@
 use super::{Anonymous, Sender};
 use crate::event::{MsgEvent, PostType, RepliableEvent};
+use crate::message_trait::MessageRegistrar as _;
 use crate::onebot_message::OneBotMessage;
 use kovi::bot::runtimebot::{CanSendApi, send_api_request_with_forget};
 use kovi::bot::{BotInformation, SendApi};
@@ -59,7 +60,7 @@ impl Event for GroupMsgEvent {
         _: &BotInformation,
         api_tx: &mpsc::Sender<ApiAndOptOneshot>,
     ) -> Option<Self> {
-        let InternalEvent::OneBotEvent(json) = event else {
+        let InternalEvent::DriverEvent(json) = event else {
             return None;
         };
         let event = Self::new(api_tx.clone(), json.clone()).ok()?;

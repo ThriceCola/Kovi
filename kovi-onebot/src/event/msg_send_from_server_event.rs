@@ -1,4 +1,5 @@
 use super::{Anonymous, Sender};
+use crate::message_trait::MessageRegistrar as _;
 use kovi::bot::runtimebot::{CanSendApi, send_api_request_with_forget};
 use kovi::bot::{BotInformation, SendApi};
 use kovi::error::EventBuildError;
@@ -62,7 +63,7 @@ impl Event for MsgSendFromServerEvent {
         _: &BotInformation,
         api_tx: &mpsc::Sender<ApiAndOptOneshot>,
     ) -> Option<Self> {
-        let InternalEvent::OneBotEvent(json) = event else {
+        let InternalEvent::DriverEvent(json) = event else {
             return None;
         };
 

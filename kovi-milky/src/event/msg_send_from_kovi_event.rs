@@ -27,12 +27,8 @@ pub struct MsgSendFromKoviEvent {
 }
 #[derive(Debug, Copy, Clone)]
 pub enum MsgSendFromKoviType {
-    SendMsg,
     SendPrivateMsg,
     SendGroupMsg,
-    SendForwardMsg,
-    SendPrivateForwardMsg,
-    SendGroupForwardMsg,
 }
 
 impl TryFrom<String> for MsgSendFromKoviType {
@@ -40,12 +36,9 @@ impl TryFrom<String> for MsgSendFromKoviType {
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         match value.as_str() {
-            "send_msg" => Ok(MsgSendFromKoviType::SendMsg),
-            "send_private_msg" => Ok(MsgSendFromKoviType::SendPrivateMsg),
-            "send_group_msg" => Ok(MsgSendFromKoviType::SendGroupMsg),
-            "send_forward_msg" => Ok(MsgSendFromKoviType::SendForwardMsg),
-            "send_private_forward_msg" => Ok(MsgSendFromKoviType::SendPrivateForwardMsg),
-            "send_group_forward_msg" => Ok(MsgSendFromKoviType::SendGroupForwardMsg),
+            "send_private_message" => Ok(MsgSendFromKoviType::SendPrivateMsg),
+            "send_group_message" => Ok(MsgSendFromKoviType::SendGroupMsg),
+
             _ => Err(format!("Invalid MsgSendFromKoviType: {value}")),
         }
     }
@@ -55,12 +48,9 @@ impl TryFrom<&str> for MsgSendFromKoviType {
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
-            "send_msg" => Ok(MsgSendFromKoviType::SendMsg),
             "send_private_msg" => Ok(MsgSendFromKoviType::SendPrivateMsg),
             "send_group_msg" => Ok(MsgSendFromKoviType::SendGroupMsg),
-            "send_forward_msg" => Ok(MsgSendFromKoviType::SendForwardMsg),
-            "send_private_forward_msg" => Ok(MsgSendFromKoviType::SendPrivateForwardMsg),
-            "send_group_forward_msg" => Ok(MsgSendFromKoviType::SendGroupForwardMsg),
+
             _ => Err(format!("Invalid MsgSendFromKoviType: {value}")),
         }
     }
@@ -70,12 +60,9 @@ impl TryFrom<&String> for MsgSendFromKoviType {
 
     fn try_from(value: &String) -> Result<Self, Self::Error> {
         match value.as_str() {
-            "send_msg" => Ok(MsgSendFromKoviType::SendMsg),
             "send_private_msg" => Ok(MsgSendFromKoviType::SendPrivateMsg),
             "send_group_msg" => Ok(MsgSendFromKoviType::SendGroupMsg),
-            "send_forward_msg" => Ok(MsgSendFromKoviType::SendForwardMsg),
-            "send_private_forward_msg" => Ok(MsgSendFromKoviType::SendPrivateForwardMsg),
-            "send_group_forward_msg" => Ok(MsgSendFromKoviType::SendGroupForwardMsg),
+
             _ => Err(format!("Invalid MsgSendFromKoviType: {value}")),
         }
     }

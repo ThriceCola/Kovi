@@ -201,7 +201,7 @@ impl Bot {
 
         fn log_msg_event<T: MessageEventTrait + ?Sized>(event: &T) {
             let message_type = event.get_message_type_str().unwrap_or_default();
-            let group_id = match event.get_ref_group_id() {
+            let group_id = match event.get_group_id() {
                 Some(id) => id.to_string(),
                 None => "".to_string(),
             };
@@ -262,7 +262,7 @@ fn is_access<T: MessageEventTrait + ?Sized>(plugin: &AccCache, event: &T) -> boo
 
     match (plugin.list_mode, in_group) {
         (AccessControlMode::WhiteList, true) => {
-            let id = event.get_ref_group_id().expect("unreachable");
+            let id = event.get_group_id().expect("unreachable");
             access_list.groups.iter().any(|v| *v == id)
         }
 
@@ -271,7 +271,7 @@ fn is_access<T: MessageEventTrait + ?Sized>(plugin: &AccCache, event: &T) -> boo
             access_list.friends.iter().any(|v| *v == id)
         }
         (AccessControlMode::BlackList, true) => {
-            let id = event.get_ref_group_id().expect("unreachable");
+            let id = event.get_group_id().expect("unreachable");
             !access_list.groups.iter().any(|v| *v == id)
         }
         (AccessControlMode::BlackList, false) => {

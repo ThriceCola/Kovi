@@ -174,7 +174,7 @@ impl OneBotMessage {
         }
 
         Err(MessageError::ParseError(
-            "Message::from_value only accept array".to_string(),
+            "OneBotMessage::from_value only accept array".to_string(),
         ))
     }
 

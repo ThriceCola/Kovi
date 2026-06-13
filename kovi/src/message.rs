@@ -4,8 +4,6 @@ use std::ops::Add;
 
 use crate::error::MessageError;
 
-pub mod add;
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Segment {
     pub kind: String,
@@ -147,6 +145,10 @@ impl std::ops::IndexMut<usize> for Message {
 }
 
 impl Message {
+    pub fn push(&mut self, s: Segment) {
+        self.0.push(s);
+    }
+
     pub fn from_value(v: Value) -> Result<Message, MessageError> {
         if let Some(v) = v.as_array() {
             match Message::from_vec_segment_value(v.clone()) {

@@ -30,7 +30,7 @@ impl Event for LifecycleEvent {
     where
         Self: Sized,
     {
-        let InternalEvent::OneBotEvent(json_str) = event else {
+        let InternalEvent::DriverEvent(json_str) = event else {
             return None;
         };
         let event: LifecycleEvent = serde_json::from_value(json_str.clone()).ok()?;

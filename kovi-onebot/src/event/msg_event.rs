@@ -1,5 +1,6 @@
 use super::{Anonymous, Sender};
 use crate::event::{PostType, RepliableEvent, Sex, UniversalMessage};
+use crate::message_trait::MessageRegistrar as _;
 use crate::onebot_message::{OneBotMessage, cq_to_arr_inner};
 use kovi::bot::runtimebot::{CanSendApi, send_api_request_with_forget};
 use kovi::bot::{BotInformation, SendApi};
@@ -71,7 +72,7 @@ impl MessageEventTrait for MsgEvent {
         RefID::new(&self.sender.user_id)
     }
 
-    fn get_ref_group_id(&self) -> Option<RefID<'_>> {
+    fn get_group_id(&self) -> Option<RefID<'_>> {
         self.group_id.as_ref().map(RefID::new)
     }
 }
@@ -82,7 +83,7 @@ impl Event for MsgEvent {
         _: &BotInformation,
         api_tx: &mpsc::Sender<ApiAndOptOneshot>,
     ) -> Option<Self> {
-        let InternalEvent::OneBotEvent(json) = event else {
+        let InternalEvent::DriverEvent(json) = event else {
             return None;
         };
 

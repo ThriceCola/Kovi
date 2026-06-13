@@ -31,6 +31,7 @@ pub use bot::runtimebot::RuntimeBot;
 pub use bot::{ApiReturn, Bot};
 pub use config::kovi_conf::load_local_conf;
 pub use kovi_macros::plugin;
+pub use message::{Message, Segment};
 pub use plugin::plugin_builder::PluginBuilder;
 pub use task::spawn;
 

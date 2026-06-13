@@ -81,9 +81,9 @@ pub trait Event: Any + Send + Sync {
 #[derive(Debug, Clone)]
 pub enum InternalEvent {
     /// 来自OneBot的事件
-    OneBotEvent(Value),
+    DriverEvent(Value),
     /// 来自Kovi发送给服务端并包含了返回结果
-    OneBotApiEvent(ApiAndRuturn),
+    DriverApiEvent(ApiAndRuturn),
 }
 
 pub trait MessageEventTrait: Event {
@@ -95,13 +95,39 @@ pub trait MessageEventTrait: Event {
 
     fn get_message_type_str(&self) -> Option<&str>;
 
-    fn get_ref_group_id(&self) -> Option<RefID<'_>>;
+    fn get_group_id(&self) -> Option<RefID<'_>>;
 
     fn is_group_message(&self) -> bool {
-        self.get_ref_group_id().is_some()
+        self.get_group_id().is_some()
     }
 
     fn is_private_message(&self) -> bool {
-        self.get_ref_group_id().is_none()
+        self.get_group_id().is_none()
     }
+}
+
+/// 满足此 trait 即可被回复
+pub trait RepliableEvent {
+    /// 快速回复消息
+    fn reply<T>(&self, msg: T)
+    where
+        Message: From<T>,
+        T: serde::Serialize;
+
+    /// 快速回复消息并且**引用**
+    fn reply_and_quote<T>(&self, msg: T)
+    where
+        Message: From<T>,
+        T: serde::Serialize;
+}
+
+pub trait MessageEventUtil {
+    /// 便捷获取文本，如果没有文本则会返回空字符串，如果只需要借用，请使用 `borrow_text()`
+    fn get_text(&self) -> String;
+
+    /// 便捷获取发送者昵称，如果无名字，此处为空字符串
+    fn get_sender_nickname(&self) -> String;
+
+    /// 借用 event 的 text，只是做了一下self.text.as_deref()的包装
+    fn borrow_text(&self) -> Option<&str>;
 }
