@@ -1,0 +1,28 @@
+[package]
+name = "kovi-onebot"
+version = "0.13.0-rc1"
+edition = "2024"
+
+[dependencies]
+ahash.workspace = true
+dialoguer.workspace = true
+http.workspace = true
+kovi.workspace = true
+log.workspace = true
+parking_lot.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tokio-tungstenite.workspace = true
+toml.workspace = true
+toml_edit.workspace = true
+chrono.workspace = true
+async-trait.workspace = true
+
+[features]
+cqstring = []
+
+native-tls-vendored = ["tokio-tungstenite/native-tls-vendored"]
+rustls-tls-native-roots = ["tokio-tungstenite/rustls-tls-native-roots"]
+rustls-tls-webpki-roots = ["tokio-tungstenite/rustls-tls-webpki-roots"]

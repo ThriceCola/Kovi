@@ -1,3 +1,9 @@
-cargo hack test --feature-powerset --exclude-features native-tls-vendored,rustls-tls-webpki-roots,rustls-tls-native-roots -p kovi
+cargo hack test --feature-powerset -p kovi
 
-cargo hack clippy --feature-powerset --exclude-features native-tls-vendored,rustls-tls-webpki-roots,rustls-tls-native-roots -p kovi
+cargo hack clippy --feature-powerset -p kovi
+
+cargo hack clippy --feature-powerset -p kovi-milky
+
+cargo hack clippy --feature-powerset -p kovi-onebot
+
+cargo +nightly udeps --all-targets
