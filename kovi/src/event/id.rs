@@ -13,6 +13,13 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 pub struct ID {
     pub inner: IDInner,
 }
+impl ID {
+    /// Convenience method to get a [`RefID`] borrowing from this `ID`.
+    pub fn as_ref(&self) -> ref_id::RefID<'_> {
+        ref_id::RefID::from(self)
+    }
+}
+
 impl std::fmt::Display for ID {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.inner {
