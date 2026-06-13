@@ -1,6 +1,8 @@
 [package]
 name = "kovi-onebot"
 version = "0.13.0-rc1"
+description = "OneBot V11 protocol driver for Kovi bot framework"
+license = "MPL-2.0"
 edition = "2024"
 
 [dependencies]
