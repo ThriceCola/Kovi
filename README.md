@@ -1,6 +1,6 @@
 <div align="center">
 
-![Badge](https://img.shields.io/badge/OneBot-11-black) [![群](https://img.shields.io/badge/QQ%E7%BE%A4-857054777-54aeff)](https://qm.qq.com/q/kmpSBOVaCI)
+![Badge](https://img.shields.io/badge/Milky-1.2-black) ![Badge](https://img.shields.io/badge/OneBot-11-black) [![群](https://img.shields.io/badge/QQ%E7%BE%A4-857054777-54aeff)](https://qm.qq.com/q/kmpSBOVaCI)
 
 **简体中文** | [English](README_Cargo.md)
 
