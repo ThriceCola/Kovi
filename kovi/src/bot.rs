@@ -246,18 +246,15 @@ impl Bot {
 
             let mut plugin_status = HashMap::new();
             for (name, plugin) in self.plugins.iter() {
-                plugin_status.insert(
-                    name.clone(),
-                    PluginStatus {
-                        enable_on_startup: *plugin.enabled.borrow(),
-                        #[cfg(feature = "plugin-access-control")]
-                        access_control: plugin.access_control,
-                        #[cfg(feature = "plugin-access-control")]
-                        list_mode: plugin.list_mode,
-                        #[cfg(feature = "plugin-access-control")]
-                        access_list: plugin.access_list.clone(),
-                    },
-                );
+                plugin_status.insert(name.clone(), PluginStatus {
+                    enable_on_startup: *plugin.enabled.borrow(),
+                    #[cfg(feature = "plugin-access-control")]
+                    access_control: plugin.access_control,
+                    #[cfg(feature = "plugin-access-control")]
+                    list_mode: plugin.list_mode,
+                    #[cfg(feature = "plugin-access-control")]
+                    access_list: plugin.access_list.clone(),
+                });
             }
 
             let serialized = match toml::to_string(&plugin_status) {
@@ -334,6 +331,7 @@ pub struct ApiReturn {
 
 /// bot信息结构体
 
+#[allow(clippy::extra_unused_lifetimes)]
 #[self_referencing]
 #[derive(Debug)]
 pub struct BotInformation {

@@ -3,6 +3,7 @@ use crate::driver::config::Server;
 use kovi::ApiReturn;
 use kovi::bot::SendApi;
 use kovi::driver::AnyError;
+use log::error;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
@@ -34,13 +35,58 @@ impl MilkyDriver {
         server: Arc<Server>,
     ) -> Result<Result<ApiReturn, ApiReturn>, AnyError> {
         let url = server.api_url(&send_api.action);
-        let res: MilkyApiReturn = client
-            .post(url)
+
+        let response = client
+            .post(&url)
             .json(&send_api.params)
             .send()
-            .await?
-            .json()
-            .await?;
+            .await
+            .map_err(|e| {
+                format!(
+                    "API request failed [{}]: cannot connect to server (url: {}), error: {}",
+                    send_api.action, url, e
+                )
+            })?;
+
+        let status = response.status();
+
+        let body_bytes = response.bytes().await.map_err(|e| {
+            format!(
+                "API response read failed [{}]: cannot read response body (url: {}, status: {}), error: {}",
+                send_api.action, url, status, e
+            )
+        })?;
+
+        let body_str = String::from_utf8_lossy(&body_bytes);
+
+        let res: MilkyApiReturn = match serde_json::from_slice(&body_bytes) {
+            Ok(v) => v,
+            Err(decode_err) => {
+                let action = &send_api.action;
+                let preview = if body_str.len() > 500 {
+                    format!(
+                        "{}... (truncated, total {} bytes)",
+                        &body_str[..500],
+                        body_bytes.len()
+                    )
+                } else {
+                    body_str.to_string()
+                };
+                error!(
+                    "API response parse failed [{}]: HTTP {}, body preview:\n{}",
+                    action, status, preview
+                );
+                error!(
+                    "API response parse failed [{}]: serde error: {}",
+                    action, decode_err
+                );
+                return Err(format!(
+                    "API response JSON parse failed [{}]: HTTP {}, url: {}, serde: {}",
+                    action, status, url, decode_err
+                )
+                .into());
+            }
+        };
 
         let value = if res.status == "ok" {
             Ok(res)

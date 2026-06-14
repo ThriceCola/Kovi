@@ -3,7 +3,7 @@ use std::hash::{Hash, Hasher};
 
 use crate::event::id::{ID, IDInner};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RefID<'r> {
     pub inner: RefIDInner<'r>,
 }
@@ -58,7 +58,7 @@ impl Ord for RefIDInner<'_> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum RefIDInner<'r> {
     Int(&'r i64),
     String(&'r str),
@@ -176,5 +176,30 @@ impl<'s> From<&'s ID> for RefID<'s> {
                 inner: RefIDInner::String(str),
             },
         }
+    }
+}
+
+impl From<RefID<'_>> for ID {
+    fn from(value: RefID<'_>) -> Self {
+        ID::from(&value)
+    }
+}
+
+impl From<&RefID<'_>> for ID {
+    fn from(value: &RefID<'_>) -> Self {
+        match value.inner {
+            RefIDInner::Int(v) => ID {
+                inner: IDInner::Int(*v),
+            },
+            RefIDInner::String(v) => ID {
+                inner: IDInner::String(v.to_owned()),
+            },
+        }
+    }
+}
+
+impl RefID<'_> {
+    pub fn to_id(&self) -> ID {
+        ID::from(self)
     }
 }

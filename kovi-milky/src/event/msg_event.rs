@@ -34,7 +34,7 @@ impl AsRef<str> for MessageScene {
 #[derive(Debug, Clone)]
 pub struct MessageReceiveEventData {
     /// 消息 Unix 时间戳（秒）
-    pub time: chrono::DateTime<chrono::Local>,
+    pub time: i64,
     pub message_scene: MessageScene,
 
     /// 消息 ID
@@ -126,7 +126,7 @@ impl MsgEvent {
         #[derive(Serialize, Deserialize, Debug, Clone)]
         pub struct TempMessageReceiveEventData {
             /// 消息 Unix 时间戳（秒）
-            pub time: chrono::DateTime<chrono::Local>,
+            pub time: i64,
             pub message_scene: MessageScene,
 
             /// 消息 ID
@@ -146,8 +146,10 @@ impl MsgEvent {
 
         type TempMsgEvent = MilkyEvent<TempMessageReceiveEventData>;
 
-        let temp_msg_event: TempMsgEvent = serde_json::from_value(temp.clone())
-            .map_err(|e| EventBuildError::ParseError(e.to_string()))?;
+        let temp_msg_event: TempMsgEvent = serde_json::from_value(temp.clone()).map_err(|e| {
+            println!("{e}:?");
+            EventBuildError::ParseError(e.to_string())
+        })?;
 
         debug!("{temp_msg_event:?}");
 

@@ -117,14 +117,18 @@ impl driver::OneBotDriver {
         // mpsc channel：send_api_inner 把请求放进来，写任务消费
         let (api_tx, api_rx) = mpsc::channel::<(OneBotSendApi, Option<OneBotApiOneshotSender>)>(64);
 
+        // 控制通道：读 task 通过它发送 Close / Pong 等控制帧给写 task
+        let (ctrl_tx, ctrl_rx) = mpsc::unbounded_channel::<Message>();
+
         // 后台任务句柄存入 ApiContext，随 OnceCell 一起存活，Drop 时自动 abort
         let tasks = vec![
             AbortOnDrop(tokio::spawn(ws_read_task(
                 read,
+                ctrl_tx,
                 Arc::clone(&tx_map),
                 Arc::clone(&event_tx),
             ))),
-            AbortOnDrop(tokio::spawn(ws_write_task(write, api_rx, tx_map, event_tx))),
+            AbortOnDrop(tokio::spawn(ws_write_task(write, api_rx, ctrl_rx, tx_map))),
         ];
 
         Ok(driver::ApiContext {
@@ -137,10 +141,12 @@ impl driver::OneBotDriver {
 /// 读任务：从 WS 收到消息，按 echo 找到对应的 oneshot sender 并发送结果
 async fn ws_read_task(
     read: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
+    ctrl_tx: mpsc::UnboundedSender<Message>,
     tx_map: OneshotTxMap,
     event_tx: EventTx,
 ) {
     read.for_each(|msg| {
+        let ctrl_tx = ctrl_tx.clone();
         let tx_map = tx_map.clone();
         let event_tx = Arc::clone(&event_tx);
         async move {
@@ -148,73 +154,87 @@ async fn ws_read_task(
                 Ok(m) => m,
                 Err(e) => {
                     error!("WS read error: {e}");
+                    return;
+                }
+            };
+
+            match msg {
+                Message::Close(frame) => {
+                    warn!("API WS connection closed by remote");
+                    // 回发 Close 完成关闭握手
+                    let _ = ctrl_tx.send(Message::Close(frame));
                     send_exit_event(&event_tx).await;
-                    return;
                 }
-            };
-
-            if msg.is_close() {
-                warn!("API WS connection closed by remote");
-                send_exit_event(&event_tx).await;
-                return;
-            }
-            if !msg.is_text() {
-                return;
-            }
-
-            let text = msg.to_text().expect("unreachable");
-            debug!("api recv: {text}");
-
-            let ret: OneBotApiReturn = match serde_json::from_str(text) {
-                Ok(v) => v,
-                Err(_) => {
-                    debug!("Unknown api return: {text}");
-                    return;
+                Message::Ping(data) => {
+                    // 即使 tungstenite 内部已自动回复，兜底处理
+                    let _ = ctrl_tx.send(Message::Pong(data));
                 }
-            };
+                Message::Text(text) => {
+                    debug!("api recv: {text}");
 
-            if ret.status.to_lowercase() != "ok" {
-                warn!("Api return error: {text}");
-            }
+                    let ret: OneBotApiReturn = match serde_json::from_str(&text) {
+                        Ok(v) => v,
+                        Err(_) => {
+                            debug!("Unknown api return: {text}");
+                            return;
+                        }
+                    };
 
-            let sender = tx_map.lock().remove(&ret.echo);
-            let Some(sender) = sender else {
-                error!("Api return echo not found in tx_map: {text}");
-                return;
-            };
+                    if ret.status.to_lowercase() != "ok" {
+                        warn!("Api return error: {text}");
+                    }
 
-            let result = if ret.status.to_lowercase() == "ok" {
-                Ok(ret)
-            } else {
-                Err(ret)
-            };
+                    let sender = tx_map.lock().remove(&ret.echo);
+                    let Some(sender) = sender else {
+                        error!("Api return echo not found in tx_map: {text}");
+                        return;
+                    };
 
-            if sender.send(result).is_err() {
-                debug!("Return Api to plugin failed, the receiver has been closed");
+                    let result = if ret.status.to_lowercase() == "ok" {
+                        Ok(ret)
+                    } else {
+                        Err(ret)
+                    };
+
+                    if sender.send(result).is_err() {
+                        debug!("Return Api to plugin failed, the receiver has been closed");
+                    }
+                }
+                _ => {} // Pong / Frame / Binary / Raw 均忽略
             }
         }
     })
     .await;
 }
 
-/// 写任务：从 mpsc 收到请求，存入 map，再通过 WS 发出
+/// 写任务：从 mpsc 收到请求 / 控制帧，写请求入 map 后通过 WS 发出
 async fn ws_write_task(
     mut write: SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
     mut api_rx: mpsc::Receiver<(OneBotSendApi, Option<OneBotApiOneshotSender>)>,
+    mut ctrl_rx: mpsc::UnboundedReceiver<Message>,
     tx_map: OneshotTxMap,
-    event_tx: EventTx,
 ) {
-    while let Some((api_msg, return_tx)) = api_rx.recv().await {
-        debug!("api send: {api_msg}");
+    loop {
+        tokio::select! {
+            Some((api_msg, return_tx)) = api_rx.recv() => {
+                debug!("api send: {api_msg}");
 
-        if let Some(tx) = return_tx {
-            tx_map.lock().insert(api_msg.echo.clone(), tx);
-        }
+                if let Some(tx) = return_tx {
+                    tx_map.lock().insert(api_msg.echo.clone(), tx);
+                }
 
-        if let Err(e) = write.send(Message::text(api_msg.to_string())).await {
-            error!("WS write error: {e}");
-            send_exit_event(&event_tx).await;
-            return;
+                if let Err(e) = write.send(Message::text(api_msg.to_string())).await {
+                    error!("WS write error: {e}");
+                    return;
+                }
+            }
+            Some(msg) = ctrl_rx.recv() => {
+                if let Err(e) = write.send(msg).await {
+                    error!("WS write error (control): {e}");
+                    return;
+                }
+            }
+            else => break,
         }
     }
 }

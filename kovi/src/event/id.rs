@@ -9,10 +9,19 @@ use std::hash::{Hash, Hasher};
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+use crate::event::id::ref_id::{RefID, RefIDInner};
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ID {
     pub inner: IDInner,
 }
+impl ID {
+    /// Convenience method to get a [`RefID`] borrowing from this `ID`.
+    pub fn as_ref(&self) -> ref_id::RefID<'_> {
+        ref_id::RefID::from(self)
+    }
+}
+
 impl std::fmt::Display for ID {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.inner {
@@ -22,7 +31,7 @@ impl std::fmt::Display for ID {
     }
 }
 impl ID {
-    pub fn new<T: ParseUserId>(inner: T) -> ID {
+    pub fn new<T: ParseId>(inner: T) -> ID {
         let inner = inner.into_id_inner();
         ID { inner }
     }
@@ -101,23 +110,41 @@ impl Hash for IDInner {
     }
 }
 
-pub trait ParseUserId: Sized {
+pub trait ParseId: Sized {
     fn into_id_inner(self) -> IDInner;
 }
 
-impl ParseUserId for i64 {
+impl ParseId for i64 {
     fn into_id_inner(self) -> IDInner {
         IDInner::Int(self)
     }
 }
-impl ParseUserId for String {
+impl ParseId for String {
     fn into_id_inner(self) -> IDInner {
         IDInner::String(self)
     }
 }
-impl ParseUserId for &str {
+impl ParseId for &str {
     fn into_id_inner(self) -> IDInner {
         IDInner::String(self.to_string())
+    }
+}
+impl ParseId for RefIDInner<'_> {
+    fn into_id_inner(self) -> IDInner {
+        match self {
+            ref_id::RefIDInner::Int(v) => IDInner::Int(v.to_owned()),
+            ref_id::RefIDInner::String(v) => IDInner::String(v.to_owned()),
+        }
+    }
+}
+impl ParseId for RefID<'_> {
+    fn into_id_inner(self) -> IDInner {
+        self.inner.into_id_inner()
+    }
+}
+impl ParseId for IDInner {
+    fn into_id_inner(self) -> IDInner {
+        self
     }
 }
 

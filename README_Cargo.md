@@ -8,13 +8,13 @@ Kovi is a simple and extensible chat bot development framework. If you want to d
 
 🤔 Let me count — the quick start in the documentation only requires 10 lines of code to create the simplest plugin.
 
-🥁 There’s also a CLI tool to make project development easier.
+🥁 There's also a CLI tool to make project development easier.
 
-🖥️  Just for fun? Or customized? Kovi is competent
+🖥️ Just for fun? Or customized? Kovi is competent
 
 🛍️ The plugin shop provides an excellent Kovi shopping experience, allowing you to easily access packages from plugin developers 📦.
 
-😍 The project documentation is very simple and easy to understand. Follow it and you’ll be good to go.
+😍 The project documentation is very simple and easy to understand. Follow it and you'll be good to go.
 
 ### ↓ Documentation is here
 
@@ -27,10 +27,12 @@ Kovi is a simple and extensible chat bot development framework. If you want to d
 
 ## Protocol Support
 
-Kovi crate is basically an "event bus" plugin runner. You can adapt it to integrate with other services as needed, but its current focus is the two protocols above.
+Kovi is an "event bus" plugin runner. It connects to chat services through **driver crates** that implement different protocols.
 
-- Milky WebSocket protocol
-- OneBot V11 forward WebSocket protocol
+- `kovi-milky` — Milky WebSocket protocol
+- `kovi-onebot` — OneBot V11 forward WebSocket protocol
+
+When creating a project, `kovi-cli` will ask you to choose a driver, or you can specify it with `--driver milky` / `--driver onebot`.
 
 ## Getting Started
 
@@ -47,18 +49,37 @@ cargo kovi new my-kovi-bot
 cd ./my-kovi-bot
 ```
 
-2. You will see that a bot instance has been generated in **src/main.rs**.
+During this step, you'll be prompted to choose a protocol driver and whether to add the command plugin.
+
+```
+✔ Which driver/protocol to use? · Milky
+✔ Are you want to add message command plugins? · Yes
+```
+
+You can also skip the prompts by passing flags:
+
+```bash
+cargo kovi n my-kovi-bot --driver onebot --cmd
+```
+
+2. A bot instance has been generated in **src/main.rs**.
 
 ```rust
-use kovi::build_bot;
+use kovi::tokio;
 
-fn main() {
-    let bot = build_bot!();
-    bot.run()
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let driver_config = kovi_milky::load_local_conf()?;
+    let driver = kovi_milky::MilkyDriver::new(driver_config);
+
+    let bot = kovi::build_bot!(driver;);
+
+    bot.run().await;
+    Ok(())
 }
 ```
 
-On your first run, during `build_bot`, you'll be prompted to enter some information to create the `kovi.conf.toml` file, which is required for Kovi to run.
+On your first run, during `driver::load_local_conf()`, you'll be prompted to enter some information to create the `kovi.conf.toml` file, which is required for the driver to run.
 
 ```
 ✔ What is the type of the host of the OneBot server? · IPv4
@@ -88,9 +109,9 @@ Follow the steps below.
 cargo kovi create hi
 ```
 
-`kovi-cli` and `cargo` will take care of everything for you.
+`kovi-cli` and `cargo` will take care of everything for you. The CLI will automatically detect which driver crates are in your workspace and add the corresponding `use` imports.
 
-You will see that a new `plugins/hi` directory has been created. This is also the recommended way to develop plugins, as it’s always good to manage them in a directory.
+You will see that a new `plugins/hi` directory has been created. This is also the recommended way to develop plugins, as it's always good to manage them in a directory.
 
 ### Writing a Plugin
 
@@ -101,6 +122,8 @@ Here's a minimal example:
 ```rust
 // Import the plugin builder structure
 use kovi::PluginBuilder as plugin;
+// Import the driver traits (kovi-milky / kovi-onebot)
+use kovi_milky::*;
 
 #[kovi::plugin] // Build the plugin
 async fn main() {
@@ -123,18 +146,26 @@ Plugins generally don't need a `main.rs`.
 cargo kovi add hi
 ```
 
-Alternatively, you can use `cargo` directly; both are the same. This will add a local dependency in the root project’s `Cargo.toml`.
+Alternatively, you can use `cargo` directly; both are the same. This will add a local dependency in the root project's `Cargo.toml`.
 
 ```bash
 cargo add --path plugins/hi
 ```
 
-```rust
-use kovi::build_bot;
+Then mount the plugin in `src/main.rs`:
 
-fn main() {
-    let bot = build_bot!(hi,hi2,plugin123);
-    bot.run()
+```rust
+use kovi::tokio;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let driver_config = kovi_milky::load_local_conf()?;
+    let driver = kovi_milky::MilkyDriver::new(driver_config);
+
+    let bot = kovi::build_bot!(driver; hi, hi2, plugin123);
+
+    bot.run().await;
+    Ok(())
 }
 ```
 
@@ -144,6 +175,7 @@ fn main() {
 
 ```rust
 use kovi::PluginBuilder as plugin;
+use kovi_milky::*;
 
 #[kovi::plugin]
 async fn main() {
