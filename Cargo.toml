@@ -10,7 +10,7 @@ members = [
 
 [workspace.dependencies]
 anyhow = "1"
-kovi = "0.13.0-rc1"
+kovi = "0.13.0"
 ahash = "0.8"
 chrono = { version = "0.4", features = ["serde"] }
 croner = "2"
@@ -43,7 +43,7 @@ async-trait = "0.1"
 kovi = { path = "kovi" }
 kovi-onebot = { path = "kovi-onebot" }
 kovi-milky = { path = "kovi-milky" }
-kovi-macros = { version = "0.5.1", path = "kovi-macros" }
+kovi-macros = { path = "kovi-macros" }
 
 
 # [package.metadata]

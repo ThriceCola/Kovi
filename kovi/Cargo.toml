@@ -3,12 +3,12 @@ name = "kovi"
 version = "0.13.0"
 authors = ["ThriceCola <thricecola@hotmail.com>"]
 edition = "2024"
-description = "A OneBot V11 bot plugin framework"
+description = "A Milky & OneBot V11 bot plugin framework"
 license = "MPL-2.0"
 repository = "https://github.com/thricecola/Kovi"
 readme = "../README_Cargo.md"
 documentation = "https://thricecola.github.io/kovi-doc/"
-keywords = ["framework", "kovi", "onebot"]
+keywords = ["framework", "kovi", "milky", "onebot"]
 
 [lib]
 name = "kovi"
