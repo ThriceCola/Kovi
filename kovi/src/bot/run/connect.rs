@@ -1,3 +1,4 @@
+use crate::bot::ApiReturn;
 use crate::bot::handler::{ExitEvent, InternalInternalEvent};
 use crate::driver::{Driver, DriverEvent};
 use crate::event::InternalEvent;
@@ -68,8 +69,35 @@ async fn send_api_inner(
     let result = match result {
         Ok(result) => result,
         Err(err) => {
-            eprintln!("Failed to handle API: {}", err);
-            self_event_tx.send(InternalInternalEvent::Exit(ExitEvent::FromDrive)).await.expect("Kovi kernel encountered an unrecoverable error during message forwarding (channel closed)");
+            let err_msg = err.to_string();
+            log::error!(
+                "Kovi failed to handle API [{}]: {}",
+                send_api.action,
+                err_msg
+            );
+
+            // 构造一个错误返回值，避免调用方永久挂起
+            let err_return = Err(ApiReturn {
+                status: "failed".to_string(),
+                retcode: -500,
+                message: Some(format!("Kovi failed to handle API: {err_msg}")),
+                data: serde_json::Value::Null,
+            });
+
+            // 如果有 oneshot，返回错误结果
+            if let Some(oneshot) = oneshot {
+                oneshot.send(err_return.clone()).ok();
+            }
+
+            // 继续发送 DriverApiEvent，让监听 MsgSendFromKoviEvent 的插件能感知到错误
+            self_event_tx
+                .send(InternalInternalEvent::OneBotEvent(Box::new(
+                    InternalEvent::DriverApiEvent((send_api, err_return)),
+                )))
+                .await
+                .expect(
+                    "Kovi kernel encountered an unrecoverable error during message forwarding (channel closed)",
+                );
             return;
         }
     };

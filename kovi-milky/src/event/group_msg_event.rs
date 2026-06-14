@@ -17,7 +17,7 @@ use tokio::sync::mpsc;
 #[derive(Debug, Clone)]
 pub struct GroupMessageReceiveEventData {
     /// 消息 Unix 时间戳（秒）
-    pub time: chrono::DateTime<chrono::Local>,
+    pub time: i64,
     pub message_scene: MessageScene,
 
     /// 消息 ID
