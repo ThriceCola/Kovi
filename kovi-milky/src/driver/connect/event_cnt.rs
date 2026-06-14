@@ -27,7 +27,6 @@ impl futures_util::Stream for WsEventStream {
         loop {
             match this.ws.poll_next_unpin(cx) {
                 Poll::Ready(Some(Ok(tungstenite::Message::Text(text)))) => {
-                    println!("{text}");
                     match serde_json::from_str(&text) {
                         Ok(event) => return Poll::Ready(Some(Ok(DriverEvent::Normal(event)))),
                         Err(e) => return Poll::Ready(Some(Err(e.into()))),

@@ -1,6 +1,6 @@
 [package]
 name = "kovi-milky"
-version = "0.13.0"
+version = "0.13.1"
 description = "Milky WebSocket protocol driver for Kovi bot framework"
 authors = ["ThriceCola <thricecola@hotmail.com>"]
 edition = "2024"

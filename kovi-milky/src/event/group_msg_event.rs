@@ -77,7 +77,7 @@ impl Event for GroupMsgEvent {
             return None;
         };
 
-        Self::new(api_tx.clone(), json.clone()).ok()
+        Self::new(api_tx, json).ok()
     }
 }
 
@@ -114,8 +114,8 @@ impl TryFrom<MsgEvent> for GroupMsgEvent {
 
 impl GroupMsgEvent {
     pub(crate) fn new(
-        api_tx: mpsc::Sender<ApiAndOptOneshot>,
-        temp: Value,
+        api_tx: &mpsc::Sender<ApiAndOptOneshot>,
+        temp: &Value,
     ) -> Result<GroupMsgEvent, EventBuildError> {
         let event = MsgEvent::new(api_tx, temp)?;
 
