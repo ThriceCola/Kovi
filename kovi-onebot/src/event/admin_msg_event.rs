@@ -6,7 +6,7 @@ use kovi::bot::runtimebot::{CanSendApi, send_api_request_with_forget};
 use kovi::bot::{BotInformation, SendApi};
 use kovi::error::EventBuildError;
 use kovi::event::id::ref_id::RefID;
-use kovi::event::{Event, InternalEvent};
+use kovi::event::{Event, InternalEvent, MessageEventTrait};
 use kovi::message::Message as KoviMessage;
 use kovi::types::ApiAndOptOneshot;
 use log::info;
@@ -386,5 +386,27 @@ impl RepliableEvent for AdminMsgEvent {
 impl CanSendApi for AdminMsgEvent {
     fn __get_api_tx(&self) -> &tokio::sync::mpsc::Sender<kovi::types::ApiAndOptOneshot> {
         &self.api_tx
+    }
+}
+
+impl MessageEventTrait for AdminMsgEvent {
+    fn get_sender_name(&self) -> Option<&str> {
+        self.sender.nickname.as_deref()
+    }
+
+    fn get_message(&self) -> &KoviMessage {
+        &self.message
+    }
+
+    fn get_message_type_str(&self) -> Option<&str> {
+        Some(&self.message_type)
+    }
+
+    fn get_sender_id(&self) -> RefID<'_> {
+        RefID::new(&self.sender.user_id)
+    }
+
+    fn get_group_id(&self) -> Option<RefID<'_>> {
+        self.group_id.as_ref().map(RefID::new)
     }
 }
