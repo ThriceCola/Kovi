@@ -1,16 +1,31 @@
-use kovi::bot::runtimebot::{send_api_request_with_forget, send_api_request_with_response, CanSendApi};
-use kovi::bot::{ApiReturn, SendApi};
-use serde_json::json;
 use crate::milky_message::MilkyMessage;
+use kovi::Message as KoviMessage;
+use kovi::bot::runtimebot::{
+    CanSendApi, send_api_request_with_forget, send_api_request_with_response,
+};
+use kovi::bot::{ApiReturn, SendApi};
+use log::info;
+use serde::Serialize;
+use serde_json::json;
 
 /// Message APIs
 pub trait MilkyMessageApi: CanSendApi {
     /// 发送私聊消息
-    fn send_private_message(
+    fn send_private_message<T>(
         &self,
         user_id: i64,
-        message: MilkyMessage,
-    ) -> impl std::future::Future<Output = Result<ApiReturn, ApiReturn>> {
+        message: T,
+    ) -> impl std::future::Future<Output = Result<ApiReturn, ApiReturn>>
+    where
+        KoviMessage: From<T>,
+        T: Serialize,
+    {
+        let message: KoviMessage = message.into();
+        let human_msg = message.to_human_string();
+        info!("[Send to private {user_id}]: {human_msg}");
+
+        let message: MilkyMessage = message.into();
+
         let send_api = SendApi::new(
             "send_private_message",
             json!({"user_id": user_id, "message": message}),
@@ -19,11 +34,20 @@ pub trait MilkyMessageApi: CanSendApi {
     }
 
     /// 发送群聊消息
-    fn send_group_message(
+    fn send_group_message<T>(
         &self,
         group_id: i64,
-        message: MilkyMessage,
-    ) -> impl std::future::Future<Output = Result<ApiReturn, ApiReturn>> {
+        message: T,
+    ) -> impl std::future::Future<Output = Result<ApiReturn, ApiReturn>>
+    where
+        KoviMessage: From<T>,
+        T: Serialize,
+    {
+        let message: KoviMessage = message.into();
+        let human_msg = message.to_human_string();
+        info!("[Send to group {group_id}]: {human_msg}");
+        let message: MilkyMessage = message.into();
+
         let send_api = SendApi::new(
             "send_group_message",
             json!({"group_id": group_id, "message": message}),
@@ -71,7 +95,8 @@ pub trait MilkyMessageApi: CanSendApi {
         start_message_seq: Option<i64>,
         limit: i32,
     ) -> impl std::future::Future<Output = Result<ApiReturn, ApiReturn>> {
-        let mut params = json!({"message_scene": message_scene, "peer_id": peer_id, "limit": limit});
+        let mut params =
+            json!({"message_scene": message_scene, "peer_id": peer_id, "limit": limit});
         if let Some(seq) = start_message_seq {
             params["start_message_seq"] = json!(seq);
         }
@@ -84,10 +109,7 @@ pub trait MilkyMessageApi: CanSendApi {
         &self,
         resource_id: &str,
     ) -> impl std::future::Future<Output = Result<ApiReturn, ApiReturn>> {
-        let send_api = SendApi::new(
-            "get_resource_temp_url",
-            json!({"resource_id": resource_id}),
-        );
+        let send_api = SendApi::new("get_resource_temp_url", json!({"resource_id": resource_id}));
         send_api_request_with_response(self.__get_api_tx(), send_api)
     }
 
@@ -96,10 +118,7 @@ pub trait MilkyMessageApi: CanSendApi {
         &self,
         forward_id: &str,
     ) -> impl std::future::Future<Output = Result<ApiReturn, ApiReturn>> {
-        let send_api = SendApi::new(
-            "get_forwarded_messages",
-            json!({"forward_id": forward_id}),
-        );
+        let send_api = SendApi::new("get_forwarded_messages", json!({"forward_id": forward_id}));
         send_api_request_with_response(self.__get_api_tx(), send_api)
     }
 
