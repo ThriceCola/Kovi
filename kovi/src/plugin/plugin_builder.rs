@@ -215,6 +215,36 @@ impl PluginBuilder {
             }
         }));
     }
+
+    /// 注册程序结束事件处理函数。
+    ///
+    /// 注册处理程序，用于处理接收到的程序结束事件。
+    pub fn drop<F, Fut>(handler: F)
+    where
+        F: Fn() -> Fut + Send + Sync + 'static,
+        Fut: Future + Send,
+        Fut::Output: Send,
+    {
+        assert_right_place!(PLUGIN_BUILDER.try_with(|p| {
+            let mut bot = p.bot.write();
+            let bot_plugin = bot
+                .plugins
+                .get_mut(&p.runtime_bot.plugin_name)
+                .expect("unreachable");
+
+            bot_plugin.listen.drop.push(Arc::new({
+                let handler = Arc::new(handler);
+                move || {
+                    Box::pin({
+                        let handler = handler.clone();
+                        async move {
+                            handler().await;
+                        }
+                    })
+                }
+            }));
+        }));
+    }
 }
 
 #[macro_export]
