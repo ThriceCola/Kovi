@@ -20,6 +20,56 @@ impl ID {
     pub fn as_ref(&self) -> ref_id::RefID<'_> {
         ref_id::RefID::from(self)
     }
+
+    pub fn try_as_i64(&self) -> Option<i64> {
+        match &self.inner {
+            IDInner::Int(v) => Some(*v),
+            IDInner::String(_) => None,
+        }
+    }
+
+    pub fn try_as_i64_or_panic(&self) -> i64 {
+        match &self.inner {
+            IDInner::Int(v) => *v,
+            IDInner::String(_) => panic!("ID is not an integer"),
+        }
+    }
+
+    pub fn try_as_str(&self) -> Option<&str> {
+        match &self.inner {
+            IDInner::Int(_) => None,
+            IDInner::String(s) => Some(s.as_str()),
+        }
+    }
+
+    pub fn try_as_str_or_panic(&self) -> &str {
+        match &self.inner {
+            IDInner::Int(_) => panic!("ID is not a string"),
+            IDInner::String(s) => s.as_str(),
+        }
+    }
+
+    pub fn is_int(&self) -> bool {
+        matches!(&self.inner, IDInner::Int(_))
+    }
+
+    pub fn is_string(&self) -> bool {
+        matches!(&self.inner, IDInner::String(_))
+    }
+
+    pub fn try_into_string(self) -> Option<String> {
+        match self.inner {
+            IDInner::Int(_) => None,
+            IDInner::String(s) => Some(s),
+        }
+    }
+
+    pub fn try_into_string_or_panic(self) -> String {
+        match self.inner {
+            IDInner::Int(_) => panic!("ID is not a string"),
+            IDInner::String(s) => s,
+        }
+    }
 }
 
 impl std::fmt::Display for ID {

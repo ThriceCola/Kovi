@@ -202,4 +202,40 @@ impl RefID<'_> {
     pub fn to_id(&self) -> ID {
         ID::from(self)
     }
+
+    pub fn try_as_i64(&self) -> Option<&i64> {
+        match &self.inner {
+            RefIDInner::Int(v) => Some(v),
+            RefIDInner::String(_) => None,
+        }
+    }
+
+    pub fn try_as_i64_or_panic(&self) -> &i64 {
+        match &self.inner {
+            RefIDInner::Int(v) => v,
+            RefIDInner::String(_) => panic!("ID is not an int"),
+        }
+    }
+
+    pub fn try_as_str(&self) -> Option<&str> {
+        match &self.inner {
+            RefIDInner::Int(_) => None,
+            RefIDInner::String(s) => Some(s),
+        }
+    }
+
+    pub fn try_as_str_or_panic(&self) -> &str {
+        match &self.inner {
+            RefIDInner::Int(_) => panic!("ID is not a string"),
+            RefIDInner::String(s) => s,
+        }
+    }
+
+    pub fn is_int(&self) -> bool {
+        matches!(&self.inner, RefIDInner::Int(_))
+    }
+
+    pub fn is_string(&self) -> bool {
+        matches!(&self.inner, RefIDInner::String(_))
+    }
 }
