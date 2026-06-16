@@ -140,3 +140,35 @@ impl CanSendApi for RuntimeBot {
         &self.api_tx
     }
 }
+
+impl RuntimeBot {
+    /// 发送拓展 Api, 此方法不关注返回值，返回值将丢弃。
+    ///
+    /// 如需要返回值，请使用 `send_api_return()`
+    ///
+    /// # Arguments
+    ///
+    /// `action`: 拓展 Api 的方法名
+    ///
+    /// `params`: 参数
+    pub fn send_api(&self, action: &str, params: Value) {
+        CanSendApi::send_api(self, action, params)
+    }
+
+    /// 发送拓展 Api, 此方法关注返回值。
+    ///
+    /// 如不需要返回值，推荐使用 `send_api()`
+    ///
+    /// # Arguments
+    ///
+    /// `action`: 拓展 Api 的方法名
+    ///
+    /// `params`: 参数
+    pub fn send_api_return(
+        &self,
+        action: &str,
+        params: Value,
+    ) -> impl std::future::Future<Output = Result<ApiReturn, ApiReturn>> {
+        CanSendApi::send_api_return(self, action, params)
+    }
+}
