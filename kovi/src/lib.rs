@@ -27,6 +27,7 @@ pub mod types;
 /// 提供一些方便的插件开发函数
 pub mod utils;
 
+pub use bot::run::ExitEvent;
 pub use bot::runtimebot::RuntimeBot;
 pub use bot::{ApiReturn, Bot};
 pub use config::kovi_conf::load_local_conf;

@@ -1,5 +1,6 @@
+use crate::ExitEvent;
 use crate::bot::ApiReturn;
-use crate::bot::handler::{ExitEvent, InternalInternalEvent};
+use crate::bot::handler::InternalInternalEvent;
 use crate::driver::{Driver, DriverEvent};
 use crate::event::InternalEvent;
 use crate::types::ApiAndOptOneshot;

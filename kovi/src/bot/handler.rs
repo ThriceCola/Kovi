@@ -1,9 +1,9 @@
-use crate::Bot;
 #[cfg(feature = "plugin-access-control")]
 use crate::bot::AccessControlMode;
 use crate::bot::BotInformation;
 #[cfg(feature = "plugin-access-control")]
 use crate::bot::runtimebot::kovi_api::AccessList;
+use crate::{Bot, ExitEvent};
 
 use crate::event::{Event, InternalEvent, MessageEventTrait};
 use crate::plugin::PLUGIN_NAME;
@@ -18,12 +18,6 @@ use tokio::sync::{mpsc, watch};
 pub(crate) enum InternalInternalEvent {
     Exit(ExitEvent),
     OneBotEvent(Box<InternalEvent>),
-}
-
-#[derive(Clone)]
-pub(crate) enum ExitEvent {
-    FromDrive,
-    FromSignal,
 }
 
 impl Bot {
