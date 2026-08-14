@@ -5,7 +5,6 @@ members = [
     "kovi-onebot",
     "kovi-macros",
     "kovi-milky",
-    "plugins/*",
 ]
 
 [workspace.dependencies]
