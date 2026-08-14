@@ -30,7 +30,9 @@ impl Bot {
 
     /// 运行bot
     ///
-    /// **注意此函数会阻塞, 直到Bot连接失效，或者有退出信号传入程序**
+    /// **注意此函数会阻塞，直到收到退出信号，或驱动器主动发起退出**
+    ///
+    /// 与服务器的连接断开时会自动重连（指数退避，1s 起，30s 封顶），不会因此退出。
     pub async fn run(self) -> ExitEvent {
         let bot = Arc::new(RwLock::new(self));
         Self::run_bot_inner(bot).await

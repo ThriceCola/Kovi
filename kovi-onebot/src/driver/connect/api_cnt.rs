@@ -1,11 +1,11 @@
 use crate::driver::config::Server;
-use crate::driver::{self, AbortOnDrop, EventTx, OneshotTxMap};
+use crate::driver::{self, AbortOnDrop, ApiContextSlot, OneshotTxMap};
 use ahash::RandomState;
 use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
 use http::HeaderValue;
 use kovi::bot::SendApi;
-use kovi::driver::{AnyError, DriverEvent};
+use kovi::driver::AnyError;
 use kovi::{ApiReturn, futures_util};
 use log::{debug, error, warn};
 use serde::{Deserialize, Serialize};
@@ -91,9 +91,12 @@ impl driver::OneBotDriver {
     }
 
     /// 冷路径：建立 WS 连接并启动后台任务，返回 ApiContext（只在首次调用时执行）
+    ///
+    /// 连接断开时（Close 帧 / 读错误 / 写错误）后台任务会把共享槽位置回 `None`，
+    /// 使下一次 API 调用重新走冷路径建立新连接，实现自动重连。
     pub(crate) async fn init_api_context(
         server: Arc<Server>,
-        event_tx: EventTx,
+        ctx: ApiContextSlot,
     ) -> Result<driver::ApiContext, AnyError> {
         let mut request = server
             .ws_url("api")
@@ -126,9 +129,15 @@ impl driver::OneBotDriver {
                 read,
                 ctrl_tx,
                 Arc::clone(&tx_map),
-                Arc::clone(&event_tx),
+                Arc::clone(&ctx),
             ))),
-            AbortOnDrop(tokio::spawn(ws_write_task(write, api_rx, ctrl_rx, tx_map))),
+            AbortOnDrop(tokio::spawn(ws_write_task(
+                write,
+                api_rx,
+                ctrl_rx,
+                tx_map,
+                ctx,
+            ))),
         ];
 
         Ok(driver::ApiContext {
@@ -143,27 +152,30 @@ async fn ws_read_task(
     read: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
     ctrl_tx: mpsc::UnboundedSender<Message>,
     tx_map: OneshotTxMap,
-    event_tx: EventTx,
+    ctx: ApiContextSlot,
 ) {
     read.for_each(|msg| {
         let ctrl_tx = ctrl_tx.clone();
         let tx_map = tx_map.clone();
-        let event_tx = Arc::clone(&event_tx);
+        let ctx = Arc::clone(&ctx);
         async move {
             let msg = match msg {
                 Ok(m) => m,
                 Err(e) => {
-                    error!("WS read error: {e}");
+                    error!("WS read error: {e}; API connection will be re-established on next call");
+                    // 置空上下文（同时丢弃 ApiContext，中止读写任务），下次调用时自动重连
+                    *ctx.lock().await = None;
                     return;
                 }
             };
 
             match msg {
                 Message::Close(frame) => {
-                    warn!("API WS connection closed by remote");
+                    warn!("API WS connection closed by remote; reconnecting on next call");
                     // 回发 Close 完成关闭握手
                     let _ = ctrl_tx.send(Message::Close(frame));
-                    send_exit_event(&event_tx).await;
+                    // 置空上下文（同时丢弃 ApiContext，中止读写任务），下次调用时自动重连
+                    *ctx.lock().await = None;
                 }
                 Message::Ping(data) => {
                     // 即使 tungstenite 内部已自动回复，兜底处理
@@ -213,6 +225,7 @@ async fn ws_write_task(
     mut api_rx: mpsc::Receiver<(OneBotSendApi, Option<OneBotApiOneshotSender>)>,
     mut ctrl_rx: mpsc::UnboundedReceiver<Message>,
     tx_map: OneshotTxMap,
+    ctx: ApiContextSlot,
 ) {
     loop {
         tokio::select! {
@@ -224,30 +237,21 @@ async fn ws_write_task(
                 }
 
                 if let Err(e) = write.send(Message::text(api_msg.to_string())).await {
-                    error!("WS write error: {e}");
+                    error!("WS write error: {e}; API connection will be re-established on next call");
+                    // 置空上下文（同时丢弃 ApiContext，中止读写任务），下次调用时自动重连
+                    *ctx.lock().await = None;
                     return;
                 }
             }
             Some(msg) = ctrl_rx.recv() => {
                 if let Err(e) = write.send(msg).await {
-                    error!("WS write error (control): {e}");
+                    error!("WS write error (control): {e}; API connection will be re-established on next call");
+                    // 置空上下文（同时丢弃 ApiContext，中止读写任务），下次调用时自动重连
+                    *ctx.lock().await = None;
                     return;
                 }
             }
             else => break,
         }
-    }
-}
-
-async fn send_exit_event(event_tx: &EventTx) {
-    let tx = {
-        let guard = event_tx.lock().await;
-        guard.as_ref().cloned()
-    };
-
-    if let Some(tx) = tx
-        && tx.send(Ok(DriverEvent::Exit)).await.is_err()
-    {
-        debug!("Failed to forward DriveEvent::Exit to event channel");
     }
 }

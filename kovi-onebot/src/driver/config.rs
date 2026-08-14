@@ -11,6 +11,9 @@ use std::path::Path;
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct OneBotDriverConfig {
     pub server: Server,
+    /// 事件通道断开后的自动重连参数
+    #[serde(default)]
+    pub reconnect: ReconnectConfig,
 }
 
 impl OneBotDriverConfig {
@@ -28,6 +31,55 @@ impl OneBotDriverConfig {
                 },
                 all_in_one: self.server.all_in_one,
             },
+            reconnect: self.reconnect.normalize(),
+        }
+    }
+}
+
+/// 事件通道断开后的自动重连参数
+///
+/// 断开后以 `base_delay_secs` 起步重试，每次翻倍，封顶 `max_delay_secs`。
+/// 连接成功后会重置回 `base_delay_secs`。
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+pub struct ReconnectConfig {
+    /// 首次重连延迟（秒），默认 1
+    #[serde(default = "default_base_delay_secs")]
+    pub base_delay_secs: u64,
+    /// 重连延迟上限（秒），默认 30
+    #[serde(default = "default_max_delay_secs")]
+    pub max_delay_secs: u64,
+}
+
+fn default_base_delay_secs() -> u64 {
+    1
+}
+
+fn default_max_delay_secs() -> u64 {
+    30
+}
+
+impl Default for ReconnectConfig {
+    fn default() -> Self {
+        Self {
+            base_delay_secs: default_base_delay_secs(),
+            max_delay_secs: default_max_delay_secs(),
+        }
+    }
+}
+
+impl ReconnectConfig {
+    /// 归一化：首延迟至少 1s，封顶不小于首延迟
+    fn normalize(mut self) -> Self {
+        self.base_delay_secs = self.base_delay_secs.max(1);
+        self.max_delay_secs = self.max_delay_secs.max(self.base_delay_secs);
+        self
+    }
+
+    /// 转为核心 `ReconnectConfig`
+    pub(crate) fn to_kovi(self) -> kovi::driver::ReconnectConfig {
+        kovi::driver::ReconnectConfig {
+            base_delay: std::time::Duration::from_secs(self.base_delay_secs),
+            max_delay: std::time::Duration::from_secs(self.max_delay_secs),
         }
     }
 }
@@ -237,6 +289,7 @@ fn config_file_write_and_return(file_path: &Path) -> Result<OneBotDriverConfig, 
             path,
             all_in_one,
         },
+        reconnect: ReconnectConfig::default(),
     };
 
     let mut doc = match fs::read_to_string(file_path) {
@@ -264,6 +317,10 @@ fn config_file_write_and_return(file_path: &Path) -> Result<OneBotDriverConfig, 
     doc["server"]["path"] = toml_edit::value(&config.server.path);
     doc["server"]["all_in_one"] = toml_edit::value(config.server.all_in_one);
 
+    doc["reconnect"] = toml_edit::table();
+    doc["reconnect"]["base_delay_secs"] = toml_edit::value(config.reconnect.base_delay_secs as i64);
+    doc["reconnect"]["max_delay_secs"] = toml_edit::value(config.reconnect.max_delay_secs as i64);
+
     let file = fs::File::create(file_path)?;
     let mut writer = std::io::BufWriter::new(file);
     writer.write_all(doc.to_string().as_bytes())?;
@@ -276,19 +333,11 @@ pub fn load_local_conf() -> Result<OneBotDriverConfig, BotBuildError> {
     let path = Path::new("kovi.conf.toml");
     let kovi_conf_file_exist = fs::metadata(path).is_ok();
 
-    #[derive(Deserialize, Serialize, Debug, Clone)]
-    struct TempKoviConfig {
-        server: Option<Server>,
-    }
-
     let conf_json: OneBotDriverConfig = if kovi_conf_file_exist {
         match fs::read_to_string(path) {
-            Ok(v) => match toml::from_str::<TempKoviConfig>(&v) {
-                Ok(conf) => match conf.server {
-                    Some(server) => OneBotDriverConfig { server },
-                    None => config_file_write_and_return(path)
-                        .map_err(|e| BotBuildError::FileCreateError(e.to_string()))?,
-                },
+            Ok(v) => match toml::from_str::<OneBotDriverConfig>(&v) {
+                // server 缺失时视为无效配置，重新交互式生成
+                Ok(conf) => conf,
                 Err(err) => {
                     eprintln!("Configuration file parsing error: {err}");
                     config_file_write_and_return(path)

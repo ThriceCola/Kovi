@@ -1,7 +1,6 @@
 use crate::driver::config::Server;
 use crate::driver::{self};
-use futures_util::stream::Select;
-use futures_util::{SinkExt, StreamExt, stream};
+use futures_util::{SinkExt, StreamExt};
 use http::HeaderValue;
 use kovi::driver::{AnyError, DriverEvent};
 use kovi::futures_util;
@@ -65,7 +64,6 @@ impl futures_util::Stream for WsEventStream {
 impl driver::OneBotDriver {
     pub(crate) async fn ws_event_connect(
         server: Server,
-        event_rx: tokio::sync::mpsc::Receiver<Result<DriverEvent, AnyError>>,
     ) -> Result<
         std::pin::Pin<
             Box<
@@ -94,11 +92,6 @@ impl driver::OneBotDriver {
             closed: false,
         };
 
-        let injected_stream = stream::unfold(event_rx, |mut rx| async move {
-            rx.recv().await.map(|item| (item, rx))
-        });
-        let stream: Select<_, _> = stream::select(ws_stream, injected_stream);
-
-        Ok(Box::pin(stream))
+        Ok(Box::pin(ws_stream))
     }
 }
