@@ -128,7 +128,13 @@ impl driver::OneBotDriver {
                 Arc::clone(&tx_map),
                 Arc::clone(&event_tx),
             ))),
-            AbortOnDrop(tokio::spawn(ws_write_task(write, api_rx, ctrl_rx, tx_map))),
+            AbortOnDrop(tokio::spawn(ws_write_task(
+                write,
+                api_rx,
+                ctrl_rx,
+                tx_map,
+                Arc::clone(&event_tx),
+            ))),
         ];
 
         Ok(driver::ApiContext {
@@ -154,6 +160,7 @@ async fn ws_read_task(
                 Ok(m) => m,
                 Err(e) => {
                     error!("WS read error: {e}");
+                    send_exit_event(&event_tx).await;
                     return;
                 }
             };
@@ -205,6 +212,9 @@ async fn ws_read_task(
         }
     })
     .await;
+
+    // 对端异常断开时流直接结束，没有 Close 帧，同样要通知框架退出
+    send_exit_event(&event_tx).await;
 }
 
 /// 写任务：从 mpsc 收到请求 / 控制帧，写请求入 map 后通过 WS 发出
@@ -213,6 +223,7 @@ async fn ws_write_task(
     mut api_rx: mpsc::Receiver<(OneBotSendApi, Option<OneBotApiOneshotSender>)>,
     mut ctrl_rx: mpsc::UnboundedReceiver<Message>,
     tx_map: OneshotTxMap,
+    event_tx: EventTx,
 ) {
     loop {
         tokio::select! {
@@ -225,12 +236,14 @@ async fn ws_write_task(
 
                 if let Err(e) = write.send(Message::text(api_msg.to_string())).await {
                     error!("WS write error: {e}");
+                    send_exit_event(&event_tx).await;
                     return;
                 }
             }
             Some(msg) = ctrl_rx.recv() => {
                 if let Err(e) = write.send(msg).await {
                     error!("WS write error (control): {e}");
+                    send_exit_event(&event_tx).await;
                     return;
                 }
             }

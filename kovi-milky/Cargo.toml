@@ -32,3 +32,10 @@ reqwest.workspace = true
 native-tls-vendored = ["tokio-tungstenite/native-tls-vendored", "reqwest/native-tls-vendored"]
 rustls-tls-native-roots = ["tokio-tungstenite/rustls-tls-native-roots", "reqwest/rustls"]
 rustls-tls-webpki-roots = ["tokio-tungstenite/rustls-tls-webpki-roots", "reqwest/rustls"]
+
+[dev-dependencies]
+futures-util.workspace = true
+kovi.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tokio-tungstenite.workspace = true

@@ -17,7 +17,7 @@ use tokio::sync::{mpsc, watch};
 #[derive(Clone)]
 pub(crate) enum InternalInternalEvent {
     Exit(ExitEvent),
-    OneBotEvent(Box<InternalEvent>),
+    DriverEvent(Box<InternalEvent>),
 }
 
 impl Bot {
@@ -28,7 +28,7 @@ impl Bot {
     ) {
         match event {
             InternalInternalEvent::Exit(_) => Self::handle_kovi_exit(bot).await,
-            InternalInternalEvent::OneBotEvent(msg) => {
+            InternalInternalEvent::DriverEvent(msg) => {
                 Self::handler_internal_event(bot, *msg, api_tx).await
             }
         }

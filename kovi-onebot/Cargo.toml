@@ -33,3 +33,10 @@ cqstring = []
 native-tls-vendored = ["tokio-tungstenite/native-tls-vendored"]
 rustls-tls-native-roots = ["tokio-tungstenite/rustls-tls-native-roots"]
 rustls-tls-webpki-roots = ["tokio-tungstenite/rustls-tls-webpki-roots"]
+
+[dev-dependencies]
+futures-util.workspace = true
+kovi.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tokio-tungstenite.workspace = true

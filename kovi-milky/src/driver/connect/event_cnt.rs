@@ -29,7 +29,10 @@ impl futures_util::Stream for WsEventStream {
                 Poll::Ready(Some(Ok(tungstenite::Message::Text(text)))) => {
                     match serde_json::from_str(&text) {
                         Ok(event) => return Poll::Ready(Some(Ok(DriverEvent::Normal(event)))),
-                        Err(e) => return Poll::Ready(Some(Err(e.into()))),
+                        Err(e) => {
+                            log::warn!("Ignored non-JSON event payload: {e}; payload={text}");
+                            continue;
+                        }
                     }
                 }
                 Poll::Ready(Some(Ok(tungstenite::Message::Close(frame)))) => {
@@ -37,7 +40,7 @@ impl futures_util::Stream for WsEventStream {
                     // 完成关闭握手：回应 Close
                     let _ = this.ws.start_send_unpin(tungstenite::Message::Close(frame));
                     let _ = this.ws.poll_flush_unpin(cx);
-                    return Poll::Ready(None);
+                    return Poll::Ready(Some(Ok(DriverEvent::Exit)));
                 }
                 Poll::Ready(Some(Ok(tungstenite::Message::Ping(data)))) => {
                     // 即使 tungstenite 内部已自动回复，兜底处理
@@ -51,10 +54,14 @@ impl futures_util::Stream for WsEventStream {
                     continue;
                 }
                 Poll::Ready(Some(Ok(_))) => {
-                    return Poll::Ready(Some(Err("The WebSocket message is not text".into())));
+                    log::warn!("Ignored non-text WebSocket event frame");
+                    continue;
                 }
                 Poll::Ready(Some(Err(e))) => return Poll::Ready(Some(Err(e.into()))),
-                Poll::Ready(None) => return Poll::Ready(None),
+                Poll::Ready(None) => {
+                    this.closed = true;
+                    return Poll::Ready(Some(Ok(DriverEvent::Exit)));
+                }
                 Poll::Pending => return Poll::Pending,
             }
         }
