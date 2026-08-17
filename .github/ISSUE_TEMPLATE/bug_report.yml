@@ -21,19 +21,30 @@ body:
     validations:
       required: true
   - type: input
-    id: napcat-version
+    id: kovi-version
     attributes:
       label: Kovi 版本
       description: 可在 Cargo.toml 中找到
-      placeholder: 1.0.0
+      placeholder: 0.13.5
+    validations:
+      required: true
+  - type: dropdown
+    id: protocol
+    attributes:
+      label: 协议
+      description: 当前使用的协议驱动
+      options:
+        - Milky
+        - OneBot V11
+        - 其他 / 自定义
     validations:
       required: true
   - type: input
-    id: onebot-server-version
+    id: protocol-server-version
     attributes:
-      label: OneBot 服务端
-      description: 连接至 Kovi 的服务端版本信息
-      placeholder: Napcat 2.5.0
+      label: 协议服务端
+      description: 连接至 Kovi 的协议服务端实现与版本信息
+      placeholder: Napcat 4.x / Lagrange / milky
     validations:
       required: true
   - type: textarea
