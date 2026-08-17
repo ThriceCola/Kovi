@@ -2,7 +2,7 @@ mod connect;
 
 use super::Bot;
 use crate::PluginBuilder;
-use crate::bot::handler::{ExitEvent, InternalInternalEvent};
+use crate::bot::handler::InternalInternalEvent;
 use crate::types::ApiAndOptOneshot;
 use log::error;
 use parking_lot::RwLock;
@@ -31,12 +31,12 @@ impl Bot {
     /// 运行bot
     ///
     /// **注意此函数会阻塞, 直到Bot连接失效，或者有退出信号传入程序**
-    pub async fn run(self) {
+    pub async fn run(self) -> ExitEvent {
         let bot = Arc::new(RwLock::new(self));
-        Self::hander_event(bot).await;
+        Self::run_bot_inner(bot).await
     }
 
-    async fn hander_event(bot: Arc<RwLock<Bot>>) {
+    async fn run_bot_inner(bot: Arc<RwLock<Bot>>) -> ExitEvent {
         //处理连接，从msg_tx返回消息
         let (self_event_tx, mut self_event_rx): (
             mpsc::Sender<InternalInternalEvent>,
@@ -72,9 +72,17 @@ impl Bot {
             });
         }
 
-        let mut drop_task = None;
+        let drop_task;
         //处理事件，每个事件都会来到这里
-        while let Some(event) = self_event_rx.recv().await {
+        let exit_event = loop {
+            let event = match self_event_rx.recv().await {
+                Some(event) => event,
+                None => {
+                    // channel 被关闭，正常退出或根据需求处理
+                    panic!("The channel is not closed correctly as expected"); // 或者 panic!() / break ... 看你的需求
+                }
+            };
+
             let self_api_tx = self_api_tx.clone();
             let bot = bot.clone();
 
@@ -85,16 +93,11 @@ impl Bot {
                     event.clone(),
                     self_api_tx,
                 )));
-                match exit_event {
-                    ExitEvent::FromDrive => {
-                        break;
-                    }
-                    ExitEvent::FromSignal => handler_second_time_exit_signal(),
-                }
+                break *exit_event;
             } else {
                 tokio::spawn(Self::handler_event(bot, event, self_api_tx));
             }
-        }
+        };
         if let Some(drop_task) = drop_task {
             match drop_task.await {
                 Ok(_) => {}
@@ -103,6 +106,8 @@ impl Bot {
                 }
             };
         }
+
+        exit_event
     }
 
     // 运行所有main()
@@ -144,6 +149,11 @@ impl ExitCheck {
             let _ = tx.send(true);
 
             Self::await_exit_signal().await;
+
+            #[inline]
+            fn handler_second_time_exit_signal() {
+                exit(1)
+            }
 
             handler_second_time_exit_signal();
         });
@@ -209,6 +219,23 @@ pub(crate) async fn exit_signal_check(tx: mpsc::Sender<InternalInternalEvent>) {
         .expect("The exit signal send failed");
 }
 
-fn handler_second_time_exit_signal() {
-    exit(1)
+/// Bot退出事件
+#[derive(Copy, Clone)]
+pub enum ExitEvent {
+    /// 从驱动器传入的退出
+    FromDrive,
+    /// 从外部程序信号传入的退出信号
+    /// - Unix 平台:
+    ///     - SIGHUP (终端挂起)
+    ///     - SIGALRM (定时器超时)
+    ///     - SIGINT (Ctrl+C 中断)
+    ///     - SIGQUIT (Ctrl+\ 退出)
+    ///     - SIGTERM (终止信号)
+    /// - Windows 平台:
+    ///     - Ctrl+Break
+    ///     - Ctrl+C
+    ///     - 控制台关闭
+    ///     - 用户注销
+    ///     - 系统关机
+    FromSignal,
 }

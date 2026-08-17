@@ -114,14 +114,14 @@ impl Event for MsgEvent {
             return None;
         };
 
-        Self::new(api_tx.clone(), json.clone()).ok()
+        Self::new(api_tx, json).ok()
     }
 }
 
 impl MsgEvent {
     pub(crate) fn new(
-        api_tx: mpsc::Sender<ApiAndOptOneshot>,
-        temp: Value,
+        api_tx: &mpsc::Sender<ApiAndOptOneshot>,
+        temp: &Value,
     ) -> Result<MsgEvent, EventBuildError> {
         #[derive(Serialize, Deserialize, Debug, Clone)]
         pub struct TempMessageReceiveEventData {
@@ -146,10 +146,8 @@ impl MsgEvent {
 
         type TempMsgEvent = MilkyEvent<TempMessageReceiveEventData>;
 
-        let temp_msg_event: TempMsgEvent = serde_json::from_value(temp.clone()).map_err(|e| {
-            println!("{e}:?");
-            EventBuildError::ParseError(e.to_string())
-        })?;
+        let temp_msg_event: TempMsgEvent = serde_json::from_value(temp.clone())
+            .map_err(|e| EventBuildError::ParseError(e.to_string()))?;
 
         debug!("{temp_msg_event:?}");
 
@@ -170,7 +168,7 @@ impl MsgEvent {
             message,
             text,
             human_text,
-            api_tx,
+            api_tx: api_tx.clone(),
         };
         let event = MsgEvent {
             data: message_receive_event_data,

@@ -97,7 +97,7 @@ impl Event for AdminMsgEvent {
             return None;
         };
 
-        Self::new(api_tx.clone(), json.clone(), bot_info).ok()
+        Self::new(api_tx, json, bot_info).ok()
     }
 }
 
@@ -132,8 +132,8 @@ impl TryFrom<MsgEvent> for AdminMsgEvent {
 
 impl AdminMsgEvent {
     pub(crate) fn new(
-        api_tx: mpsc::Sender<ApiAndOptOneshot>,
-        temp: Value,
+        api_tx: &mpsc::Sender<ApiAndOptOneshot>,
+        temp: &Value,
         bot_info: &BotInformation,
     ) -> Result<AdminMsgEvent, EventBuildError> {
         let event = MsgEvent::new(api_tx, temp)?;

@@ -77,7 +77,7 @@ impl Event for FriendMsgEvent {
             return None;
         };
 
-        Self::new(api_tx.clone(), json.clone()).ok()
+        Self::new(api_tx, json).ok()
     }
 }
 
@@ -112,8 +112,8 @@ impl TryFrom<MsgEvent> for FriendMsgEvent {
 
 impl FriendMsgEvent {
     pub(crate) fn new(
-        api_tx: mpsc::Sender<ApiAndOptOneshot>,
-        temp: Value,
+        api_tx: &mpsc::Sender<ApiAndOptOneshot>,
+        temp: &Value,
     ) -> Result<FriendMsgEvent, EventBuildError> {
         let event = MsgEvent::new(api_tx, temp)?;
 

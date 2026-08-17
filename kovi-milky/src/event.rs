@@ -3,16 +3,53 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 pub use admin_msg_event::AdminMsgEvent;
+pub use friend_file_upload::FriendFileUploadEvent;
 pub use friend_msg_event::FriendMsgEvent;
+pub use friend_nudge::FriendNudgeEvent;
+pub use friend_request::FriendRequestEvent;
+pub use group_admin_change::GroupAdminChangeEvent;
+pub use group_essence_message_change::GroupEssenceMessageChangeEvent;
+pub use group_file_upload::GroupFileUploadEvent;
+pub use group_invitation::GroupInvitationEvent;
+pub use group_invited_join_request::GroupInvitedJoinRequestEvent;
+pub use group_join_request::GroupJoinRequestEvent;
+pub use group_member_decrease::GroupMemberDecreaseEvent;
+pub use group_member_increase::GroupMemberIncreaseEvent;
+pub use group_message_reaction::{GroupMessageReactionEvent, ReactionType};
 pub use group_msg_event::GroupMsgEvent;
+pub use group_mute::GroupMuteEvent;
+pub use group_name_change::GroupNameChangeEvent;
+pub use group_nudge::GroupNudgeEvent;
+pub use group_whole_mute::GroupWholeMuteEvent;
+pub use message_recall::MessageRecallEvent;
 pub use msg_event::{MessageReceiveEventData, MessageScene, MsgEvent};
 pub use msg_send_from_kovi_event::{MsgSendFromKoviEvent, MsgSendFromKoviType};
+pub use peer_pin_change::PeerPinChangeEvent;
 
 pub mod admin_msg_event;
+pub mod bot_offline;
+pub mod friend_file_upload;
 pub mod friend_msg_event;
+pub mod friend_nudge;
+pub mod friend_request;
+pub mod group_admin_change;
+pub mod group_essence_message_change;
+pub mod group_file_upload;
+pub mod group_invitation;
+pub mod group_invited_join_request;
+pub mod group_join_request;
+pub mod group_member_decrease;
+pub mod group_member_increase;
+pub mod group_message_reaction;
 pub mod group_msg_event;
+pub mod group_mute;
+pub mod group_name_change;
+pub mod group_nudge;
+pub mod group_whole_mute;
+pub mod message_recall;
 pub mod msg_event;
 pub mod msg_send_from_kovi_event;
+pub mod peer_pin_change;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GroupMemberEntity {
@@ -21,7 +58,7 @@ pub struct GroupMemberEntity {
     /// 用户昵称
     pub nickname: String,
     /// 用户性别，可能值：male female unknown
-    pub sex: String,
+    pub sex: Sex,
     /// 群号
     pub group_id: i64,
     /// 成员备注
