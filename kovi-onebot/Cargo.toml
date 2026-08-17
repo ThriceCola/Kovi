@@ -1,6 +1,6 @@
 [package]
 name = "kovi-onebot"
-version = "0.13.1"
+version = "0.13.2"
 description = "OneBot V11 protocol driver for Kovi bot framework"
 authors = ["ThriceCola <thricecola@hotmail.com>"]
 edition = "2024"
