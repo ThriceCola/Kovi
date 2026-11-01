@@ -27,3 +27,5 @@ plugins/**
 # 但保留 plugins/hi/ 及其所有内容
 !plugins/hi/
 !plugins/hi/**
+
+backup/
